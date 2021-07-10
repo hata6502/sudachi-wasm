@@ -5,6 +5,11 @@ authors = ["Sorami Hisamoto <s@89.io>"]
 edition = "2018"
 license = "Apache-2.0"
 
+[lib]
+crate-type = ["cdylib"]
+
 [dependencies]
-structopt = "0.2"
 nom = "4.2.2"
+once_cell = "1.7.2"
+structopt = "0.2"
+wasm-bindgen = "0.2"
