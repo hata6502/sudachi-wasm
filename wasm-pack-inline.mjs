@@ -29,5 +29,7 @@ const initializeScript = `
 await fs.appendFile(packageObject.module, initializeScript);
 
 packageObject.files = packageObject.files.filter(file => !file.endsWith('.wasm'));
+packageObject.main = packageObject.module;
 packageObject.type = "module";
+
 await fs.writeFile('package.json', JSON.stringify(packageObject, null, 2));
