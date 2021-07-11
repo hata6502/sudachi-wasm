@@ -1,7 +1,7 @@
 #!/bin/sh
 
 DICT_NAME_BASE="sudachi-dictionary-20200722"
-DICT_TYPE="core"
+DICT_TYPE="small"
 DICT_NAME="${DICT_NAME_BASE}-${DICT_TYPE}"
 
 echo "Downloading a dictionary file \`${DICT_NAME}\` ..."

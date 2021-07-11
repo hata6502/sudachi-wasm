@@ -13,7 +13,7 @@ This distribution supports both of browser and Node.js.
 ```html
 <script type="module">
   const console = document.querySelector("#console");
-  const { tokenize } = await import('https://sudachi-wasm.s3.amazonaws.com/v0.1.1.js');
+  const { tokenize } = await import('https://sudachi-wasm.s3.amazonaws.com/v0.1.2.js');
 
   console.innerText = JSON.stringify(JSON.parse(tokenize('今日は良い天気なり。')), null, 2);
 </script>
