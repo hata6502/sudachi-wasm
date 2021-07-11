@@ -1,10 +1,6 @@
 #!/usr/bin/env zx
  
 const packageObject = JSON.parse(await fs.readFile('package.json', 'utf-8'));
-
-packageObject.type = "module";
-await fs.writeFile('package.json', JSON.stringify(packageObject, null, 2));
-
 const wasmPath = packageObject.files.find(file => file.endsWith('.wasm'));
 const wasm = await fs.readFile(wasmPath);
 const wasmBASE64 = wasm.toString('base64');
@@ -31,3 +27,7 @@ const initializeScript = `
 `
 
 await fs.appendFile(packageObject.module, initializeScript);
+
+packageObject.files = packageObject.files.filter(file => !file.endsWith('.wasm'));
+packageObject.type = "module";
+await fs.writeFile('package.json', JSON.stringify(packageObject, null, 2));
