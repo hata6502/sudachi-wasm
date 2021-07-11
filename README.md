@@ -1,3 +1,24 @@
+**Work In Progress**
+
+# sudachi-wasm
+
+> WebAssembly distribution of sudachi.rs.
+
+This distribution supports both of browser and Node.js.
+
+## Requirements
+
+- [wasm-pack](https://github.com/rustwasm/wasm-pack)
+- [zx](https://github.com/google/zx)
+
+## Build
+
+```bash
+wasm-pack build --dev --target web && cd pkg && zx ../wasm-pack-inline.mjs && cd ..
+```
+
+***
+
 **2021-07-07 UPDATE: The official Sudachi team will take over this project** (cf. [日本語形態素解析器 SudachiPy の 現状と今後について - Speaker Deck](https://speakerdeck.com/waptech/ri-ben-yu-xing-tai-su-jie-xi-qi-sudachipy-false-xian-zhuang-tojin-hou-nituite?slide=28))
 
 

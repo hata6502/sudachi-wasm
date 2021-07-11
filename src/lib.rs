@@ -15,7 +15,7 @@ use tokenizer::Mode;
 use tokenizer::Tokenizer;
 
 // embed dictionary binary file
-const BYTES: &[u8; 0] = include_bytes!("resources/system.dic");
+const BYTES: &[u8; 212973212] = include_bytes!("resources/system.dic");
 // load and parse dictionary binary to create a tokenizer
 const TOKENIZER: Lazy<Tokenizer> = Lazy::new(|| Tokenizer::new(BYTES));
 
