@@ -1,5 +1,3 @@
-**Work In Progress**
-
 # sudachi-wasm
 
 > WebAssembly distribution of sudachi.rs.
@@ -16,6 +14,33 @@ This distribution supports both of browser and Node.js.
 ```bash
 wasm-pack build --dev --target web && cd pkg && zx ../wasm-pack-inline.mjs && cd ..
 ```
+
+## Test
+
+### Browser
+
+```bash
+npx http-server
+```
+
+Then, access to the [local server](http://127.0.0.1:8080/test/browser.html).
+
+### Node.js
+
+```bash
+node test/node.mjs
+```
+
+## Disclaimer
+
+The following creations are included in this product:
+
+- [WorksApplications/sudachi.rs](https://github.com/WorksApplications/sudachi.rs)
+- [WorksApplications/SudachiDict](https://github.com/WorksApplications/SudachiDict#licenses)
+  - [UniDic](https://unidic.ninjal.ac.jp/)
+  - [neologd/mecab-ipadic-neologd](https://github.com/neologd/mecab-ipadic-neologd)
+
+Please see also [DISCLAIMER.md](https://github.com/hata6502/sudachi-wasm/blob/main/DISCLAIMER.md).
 
 ***
 
