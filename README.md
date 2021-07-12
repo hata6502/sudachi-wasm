@@ -32,7 +32,7 @@ This distribution supports both of browser and Node.js.
 
 #### ⚠ Script is too large
 
-The script file is larger than 50 MB 🐘.
+Gzipped script file is also larger than 50 MB 🐘.
 Please use the following mechanisms to delivery it.
 
 - [gzip encoding](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Encoding) for compressing
