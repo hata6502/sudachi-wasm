@@ -4,21 +4,39 @@
 
 This distribution supports both of browser and Node.js.
 
-#### ✨ [Demo](https://hata6502.github.io/sudachi-wasm/)
+#### ✨ [Demo](https://sudachi-wasm.s3.amazonaws.com/index.html)
 
 ## Usage
 
 ### Browser
 
+[v0.1.2.js](https://sudachi-wasm.s3.amazonaws.com/v0.1.2.js)
+
 ```html
 <script type="module">
+  if ("serviceWorker" in navigator) {
+    await navigator.serviceWorker.register("serviceWorker.js");
+  }
+
   const console = document.querySelector("#console");
-  const { tokenize } = await import('https://sudachi-wasm.s3.amazonaws.com/v0.1.2.js');
+  // Please replace to self-hosted script path.
+  const { tokenize } = await import("/v0.1.2.js");
 
-  console.innerText = JSON.stringify(JSON.parse(tokenize('今日は良い天気なり。')), null, 2);
+  console.innerText = JSON.stringify(
+    JSON.parse(tokenize("今日は良い天気なり。")),
+    null,
+    2
+  );
 </script>
-
 ```
+
+#### ⚠ Script is too large
+
+The script file is larger than 50 MB 🐘.
+Please use the following mechanisms to delivery it.
+
+- [gzip encoding](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Encoding) for compressing
+- [Service Worker](https://developer.mozilla.org/en-US/docs/Web/API/Service_Worker_API/Using_Service_Workers) for caching
 
 ### Node.js
 
@@ -29,10 +47,9 @@ npm i sudachi
 Then,
 
 ```js
-const { tokenize } = await import('sudachi');
+const { tokenize } = await import("sudachi");
 
-console.log(JSON.parse(tokenize('今日は良い天気なり。')));
-
+console.log(JSON.parse(tokenize("今日は良い天気なり。")));
 ```
 
 ## Development requirements
