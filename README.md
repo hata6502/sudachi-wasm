@@ -10,7 +10,7 @@ This distribution supports both of browser and Node.js.
 
 ### Browser
 
-[v0.1.2.js](https://sudachi-wasm.s3.amazonaws.com/v0.1.2.js)
+[v0.1.3.js](https://sudachi-wasm.s3.amazonaws.com/v0.1.3.js)
 
 ```html
 <script type="module">
@@ -20,7 +20,7 @@ This distribution supports both of browser and Node.js.
 
   const console = document.querySelector("#console");
   // Please replace to self-hosted script path.
-  const { tokenize } = await import("/v0.1.2.js");
+  const { tokenize } = await import("/v0.1.3.js");
 
   console.innerText = JSON.stringify(
     JSON.parse(tokenize("今日は良い天気なり。")),
