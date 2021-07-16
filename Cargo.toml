@@ -1,6 +1,6 @@
 [package]
 name = "sudachi"
-version = "0.1.2"
+version = "0.1.3"
 authors = ["Sorami Hisamoto <s@89.io>", "Tomoyuki Hata <hato6502@gmail.com>"]
 edition = "2018"
 license = "Apache-2.0"

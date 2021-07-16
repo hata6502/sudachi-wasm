@@ -17,6 +17,13 @@ use tokenizer::Tokenizer;
 // embed dictionary binary file
 const BYTES: &[u8; 122037852] = include_bytes!("resources/system.dic");
 
+#[wasm_bindgen]
+pub enum TokenizeMode {
+    A,
+    B,
+    C,
+}
+
 #[derive(Serialize)]
 struct DescribedMorpheme {
     surface: String,
@@ -27,10 +34,16 @@ struct DescribedMorpheme {
 }
 
 #[wasm_bindgen]
-pub fn tokenize(input: String) -> String {
+pub fn tokenize(input: String, mode: TokenizeMode) -> String {
     // load and parse dictionary binary to create a tokenizer
     let tokenizer = Tokenizer::new(BYTES);
-    let morphemes = tokenizer.tokenize(&input, &Mode::C, false);
+
+    let morphemes = tokenizer.tokenize(&input, match mode {
+        TokenizeMode::A => &Mode::A,
+        TokenizeMode::B => &Mode::B,
+        TokenizeMode::C => &Mode::C,
+    }, false);
+
     let mut described_morphemes = Vec::new();
 
     for morpheme in morphemes {
