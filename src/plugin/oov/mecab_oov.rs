@@ -35,7 +35,7 @@ impl MeCabOovPlugin {
         // todo: mv to dic/char_category
         let mut categories = HashMap::new();
 
-        let reader = BufReader::new(fs::File::open(&path)?);
+        let reader = BufReader::new(&include_bytes!("../../resources/char.def")[0..]);
         for (i, line) in reader.lines().enumerate() {
             let line = line?;
             let line = line.trim();
@@ -87,7 +87,7 @@ impl MeCabOovPlugin {
     ) -> SudachiResult<HashMap<CategoryType, Vec<OOV>>> {
         let mut oov_list: HashMap<CategoryType, Vec<OOV>> = HashMap::new();
 
-        let reader = BufReader::new(fs::File::open(&path)?);
+        let reader = BufReader::new(&include_bytes!("../../resources/unk.def")[0..]);
         for (i, line) in reader.lines().enumerate() {
             let line = line?;
             let line = line.trim();

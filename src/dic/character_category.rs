@@ -57,8 +57,7 @@ impl CharacterCategory {
     }
 
     fn read_character_definition(path: Option<&str>) -> SudachiResult<Vec<Range>> {
-        let path = path.unwrap_or(DEFAULT_CHAR_DEF_FILE_PATH);
-        let reader = BufReader::new(fs::File::open(&path)?);
+        let reader = BufReader::new(&include_bytes!("../resources/char.def")[0..]);
 
         let mut ranges: Vec<Range> = Vec::new();
         for (i, line) in reader.lines().enumerate() {
