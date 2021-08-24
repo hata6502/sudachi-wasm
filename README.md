@@ -20,10 +20,10 @@ This distribution supports both of browser and Node.js.
 
   const console = document.querySelector("#console");
   // Please replace to self-hosted script path.
-  const { tokenize } = await import("/v0.1.4.js");
+  const { TokenizeMode, tokenize } = await import("/v0.1.4.js");
 
   console.innerText = JSON.stringify(
-    JSON.parse(tokenize("今日は良い天気なり。")),
+    JSON.parse(tokenize("今日は良い天気なり。", TokenizeMode.C)),
     null,
     2
   );
@@ -47,9 +47,9 @@ npm i sudachi
 Then,
 
 ```js
-const { tokenize } = await import("sudachi");
+const { TokenizeMode, tokenize } = await import("sudachi");
 
-console.log(JSON.parse(tokenize("今日は良い天気なり。")));
+console.log(JSON.parse(tokenize("今日は良い天気なり。", TokenizeMode.C)));
 ```
 
 ## Development requirements
