@@ -4,6 +4,7 @@ version = "0.1.4"
 authors = ["Sorami Hisamoto <s@89.io>", "Tomoyuki Hata <hato6502@gmail.com>"]
 edition = "2018"
 license = "Apache-2.0"
+repository = "https://github.com/hata6502/sudachi-wasm"
 
 [lib]
 crate-type = ["cdylib"]
