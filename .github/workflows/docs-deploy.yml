@@ -1,0 +1,42 @@
+name: Deploy Documentation
+
+on:
+  push:
+    branches: [ develop ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Build rust document
+        # build document of lib only for now to avoid name collision.
+        working-directory: ./sudachi
+        run:
+          cargo doc --no-deps
+      - name: Move docs
+        run: mv ./target/doc ./docs/rust
+
+      - name: Setup python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.8'
+      - name: Install dependencies
+        run: python3 -m pip install -U setuptools setuptools-rust sphinx sphinx-rtd-theme
+
+      - name: Build python binding
+        working-directory: ./python
+        run: python3 setup.py develop
+
+      - name: Build pyhton document
+        working-directory: ./python/docs
+        run: make html
+      - name: Move docs
+        run: mv ./python/docs/build/html ./docs/python
+
+      - name: Deploy
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./docs

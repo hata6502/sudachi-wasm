@@ -1,4 +1,19 @@
-/target
+**/target
 **/*.rs.bk
-*.dic
 README*.html
+
+*.dic
+/tests/resources/*.tmp
+
+# IDE files
+.idea/
+.vscode/
+
+# python binding
+python/dist/
+__pycache__/
+.env
+*.egg-info
+*.so
+python/py_src/sudachi/*.pyd
+python/build/
