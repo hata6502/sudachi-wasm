@@ -31,17 +31,17 @@ pub mod input_text;
 pub mod plugin;
 pub mod sentence_detector;
 pub mod sentence_splitter;
+pub(crate) mod util;
 
 mod hash;
+pub mod pos;
 #[cfg(test)]
 pub mod test;
 
 pub mod prelude {
     pub use crate::{
-        analysis::morpheme::MorphemeList,
-        analysis::{Mode, Tokenize},
-        error::SudachiError,
-        error::SudachiResult,
+        analysis::mlist::MorphemeList, analysis::morpheme::Morpheme, analysis::Mode,
+        error::SudachiError, error::SudachiResult,
     };
 }
 

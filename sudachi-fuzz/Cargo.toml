@@ -1,0 +1,16 @@
+[package]
+name = "sudachi-fuzz"
+version = "0.0.1"
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description.workspace = true
+license.workspace = true
+
+[dependencies]
+sudachi = { path = "../sudachi" }
+criterion = "0.5"
+arbitrary = "1"
+
+[target.'cfg(unix)'.dependencies]
+honggfuzz = "0.5"

@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2021 Works Applications Co., Ltd.
+ *  Copyright (c) 2021-2024 Works Applications Co., Ltd.
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -34,24 +34,19 @@ const MAX_LENGTH: usize = u16::MAX as usize / 4 * 3;
 /// if the limit of the rewritten sentence is more than this number, then all bets are off
 const REALLY_MAX_LENGTH: usize = u16::MAX as usize;
 
-#[derive(Eq, PartialEq, Debug)]
+#[derive(Eq, PartialEq, Debug, Clone, Default)]
 enum BufferState {
+    #[default]
     Clean,
     RW,
     RO,
-}
-
-impl Default for BufferState {
-    fn default() -> Self {
-        BufferState::Clean
-    }
 }
 
 /// InputBuffer - prepares the input data for the analysis
 ///
 /// By saying char we actually mean Unicode codepoint here.
 /// In the context of this struct these terms are synonyms.
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct InputBuffer {
     /// Original input data, output is done on this
     original: String,
@@ -112,7 +107,7 @@ impl InputBuffer {
     /// Creates input from the passed string. Should be used mostly for tests.
     ///
     /// Panics if the input string is too long.
-    pub fn from<'a, T: AsRef<str>>(data: T) -> InputBuffer {
+    pub fn from<T: AsRef<str>>(data: T) -> InputBuffer {
         let mut buf = Self::new();
         buf.reset().push_str(data.as_ref());
         buf.start_build().expect("");
@@ -144,6 +139,7 @@ impl InputBuffer {
         let non_starting = CategoryType::ALPHA | CategoryType::GREEK | CategoryType::CYRILLIC;
         let mut prev_cat = CategoryType::empty();
         self.mod_bow.resize(self.modified.len(), false);
+        let mut next_bow = true;
 
         for (chidx, (bidx, ch)) in self.modified.char_indices().enumerate() {
             self.mod_chars.push(ch);
@@ -155,12 +151,26 @@ impl InputBuffer {
             last_offset = bidx;
             last_chidx = chidx;
 
-            // BOW logic: for special cases check if the previous char is compatible
-            self.mod_bow[bidx] = if cat.intersects(non_starting) {
+            let can_bow = if !next_bow {
+                // this char was forbidden by the previous one
+                next_bow = true;
+                false
+            } else if cat.intersects(CategoryType::NOOOVBOW2) {
+                // this rule is stronger than the next one and must come before
+                // this and next are forbidden
+                next_bow = false;
+                false
+            } else if cat.intersects(CategoryType::NOOOVBOW) {
+                // this char is forbidden
+                false
+            } else if cat.intersects(non_starting) {
+                // the previous char is compatible
                 !cat.intersects(prev_cat)
             } else {
                 true
             };
+
+            self.mod_bow[bidx] = can_bow;
             prev_cat = cat;
         }
         // trailing indices for the last codepoint

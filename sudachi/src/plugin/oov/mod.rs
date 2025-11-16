@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Works Applications Co., Ltd.
+ * Copyright (c) 2021-2024 Works Applications Co., Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use crate::analysis::created::CreatedWords;
 use crate::analysis::Node;
 use serde_json::Value;
 
@@ -21,30 +22,24 @@ use crate::config::Config;
 use crate::dic::grammar::Grammar;
 use crate::input_text::InputBuffer;
 use crate::plugin::oov::mecab_oov::MeCabOovPlugin;
+use crate::plugin::oov::regex_oov::RegexOovProvider;
 use crate::plugin::oov::simple_oov::SimpleOovPlugin;
 use crate::plugin::PluginCategory;
 use crate::prelude::*;
 
 pub mod mecab_oov;
+pub mod regex_oov;
 pub mod simple_oov;
 
 /// Trait of plugin to provide oov node during tokenization
 pub trait OovProviderPlugin: Sync + Send {
     /// Loads necessary information for the plugin
-    fn set_up(&mut self, settings: &Value, config: &Config, grammar: &Grammar)
-        -> SudachiResult<()>;
-
-    /// offset - char idx
-    fn get_oov(
-        &self,
-        input_text: &InputBuffer,
-        offset: usize,
-        has_other_words: bool,
-        result: &mut Vec<Node>,
-    ) -> SudachiResult<()> {
-        self.provide_oov(input_text, offset, has_other_words, result)?;
-        Ok(())
-    }
+    fn set_up(
+        &mut self,
+        settings: &Value,
+        config: &Config,
+        grammar: &mut Grammar,
+    ) -> SudachiResult<()>;
 
     /// Generate a list of oov nodes
     /// offset - char idx
@@ -52,9 +47,9 @@ pub trait OovProviderPlugin: Sync + Send {
         &self,
         input_text: &InputBuffer,
         offset: usize,
-        has_other_words: bool,
+        other_words: CreatedWords,
         result: &mut Vec<Node>,
-    ) -> SudachiResult<()>;
+    ) -> SudachiResult<usize>;
 }
 
 impl PluginCategory for dyn OovProviderPlugin {
@@ -66,8 +61,9 @@ impl PluginCategory for dyn OovProviderPlugin {
 
     fn bundled_impl(name: &str) -> Option<Self::BoxType> {
         match name {
-            "SimpleOovPlugin" => Some(Box::new(SimpleOovPlugin::default())),
-            "MeCabOovPlugin" => Some(Box::new(MeCabOovPlugin::default())),
+            "SimpleOovPlugin" => Some(Box::<SimpleOovPlugin>::default()),
+            "MeCabOovPlugin" => Some(Box::<MeCabOovPlugin>::default()),
+            "RegexOovProvider" => Some(Box::<RegexOovProvider>::default()),
             _ => None,
         }
     }
@@ -76,7 +72,7 @@ impl PluginCategory for dyn OovProviderPlugin {
         ptr: &mut Self::BoxType,
         settings: &Value,
         config: &Config,
-        grammar: &Grammar,
+        grammar: &mut Grammar,
     ) -> SudachiResult<()> {
         ptr.set_up(settings, config, grammar)
     }

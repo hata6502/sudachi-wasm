@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Works Applications Co., Ltd.
+ * Copyright (c) 2021-2024 Works Applications Co., Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -58,13 +58,13 @@ impl JoinNumericPlugin {
     ) -> SudachiResult<Vec<ResultNode>> {
         let word_info = path[begin].word_info();
 
-        if word_info.pos_id != self.numeric_pos_id {
+        if word_info.pos_id() != self.numeric_pos_id {
             return Ok(path);
         }
 
         if self.enable_normalize {
             let normalized_form = parser.get_normalized();
-            if end - begin > 1 || normalized_form != word_info.normalized_form {
+            if end - begin > 1 || normalized_form != word_info.normalized_form() {
                 path = concat_nodes(path, begin, end, Some(normalized_form))?;
             }
             return Ok(path);
@@ -90,7 +90,7 @@ impl JoinNumericPlugin {
             i += 1;
             let node = &path[i as usize];
             let ctypes = text.cat_of_range(node.char_range());
-            let s = &node.word_info().normalized_form;
+            let s = node.word_info().normalized_form();
             if ctypes.intersects(CategoryType::NUMERIC | CategoryType::KANJINUMERIC)
                 || (comma_as_digit && s == ",")
                 || (period_as_digit && s == ".")
@@ -102,10 +102,10 @@ impl JoinNumericPlugin {
                 for c in s.chars() {
                     if !parser.append(&c) {
                         if begin_idx >= 0 {
-                            if parser.error_state == numeric_parser::Error::COMMA {
+                            if parser.error_state == numeric_parser::Error::Comma {
                                 comma_as_digit = false;
                                 i = begin_idx - 1;
-                            } else if parser.error_state == numeric_parser::Error::POINT {
+                            } else if parser.error_state == numeric_parser::Error::Point {
                                 period_as_digit = false;
                                 i = begin_idx - 1;
                             }
@@ -131,9 +131,9 @@ impl JoinNumericPlugin {
                     path = self.concat(path, begin_idx as usize, i as usize, &mut parser)?;
                     i = begin_idx + 1;
                 } else {
-                    let ss = &path[i as usize - 1].word_info().normalized_form;
-                    if (parser.error_state == numeric_parser::Error::COMMA && ss == ",")
-                        || (parser.error_state == numeric_parser::Error::POINT && ss == ".")
+                    let ss = path[i as usize - 1].word_info().normalized_form();
+                    if (parser.error_state == numeric_parser::Error::Comma && ss == ",")
+                        || (parser.error_state == numeric_parser::Error::Point && ss == ".")
                     {
                         path =
                             self.concat(path, begin_idx as usize, i as usize - 1, &mut parser)?;
@@ -156,9 +156,9 @@ impl JoinNumericPlugin {
             if parser.done() {
                 path = self.concat(path, begin_idx as usize, len, &mut parser)?;
             } else {
-                let ss = &path[len - 1].word_info().normalized_form;
-                if (parser.error_state == numeric_parser::Error::COMMA && ss == ",")
-                    || (parser.error_state == numeric_parser::Error::POINT && ss == ".")
+                let ss = path[len - 1].word_info().normalized_form();
+                if (parser.error_state == numeric_parser::Error::Comma && ss == ",")
+                    || (parser.error_state == numeric_parser::Error::Point && ss == ".")
                 {
                     path = self.concat(path, begin_idx as usize, len - 1, &mut parser)?;
                 }

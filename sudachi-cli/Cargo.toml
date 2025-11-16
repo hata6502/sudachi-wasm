@@ -1,18 +1,21 @@
 [package]
 name = "sudachi-cli"
-version = "0.6.0-rc1"
-authors = ["Works Applications <sudachi@worksap.co.jp>"]
-edition = "2018"
-description = "Rust version of Sudachi, the Japanese Morphological Analyzer"
-readme = "README.md"
-homepage = "https://github.com/WorksApplications/sudachi.rs"
-repository = "https://github.com/WorksApplications/sudachi.rs"
-license = "Apache-2.0"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description.workspace = true
+readme.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
 
 [dependencies]
 sudachi = { path = "../sudachi" }
-structopt = "0.3" # MIT/Apache 2.0
+
 cfg-if = "1.0.0" # MIT/Apache 2.0
+clap = { version = "4.5", features = ["derive"] } # MIT/Apache 2.0
+memmap2 = "0.9" # MIT/Apache 2.0
 
 [[bin]]
 name = "sudachi"

@@ -17,7 +17,7 @@ from setuptools_rust import Binding, RustExtension
 
 setup(
     name="SudachiPy",
-    version="0.6.0-rc1",
+    version="0.6.11-a1",
     description="Python version of Sudachi, the Japanese Morphological Analyzer",
     long_description=open('README.md', encoding='utf-8').read(),
     long_description_content_type="text/markdown",
@@ -30,10 +30,15 @@ setup(
         "sudachipy.sudachipy", binding=Binding.PyO3)],
     packages=["sudachipy", "sudachipy.dictionary", "sudachipy.tokenizer",
               "sudachipy.morphemelist", "sudachipy.morpheme"],
-    package_data={"": ["resources/*.json", "resources/*.def"]},
+    package_data={"": ["resources/*.json", "resources/*.def", "*.pyi"]},
     package_dir={"": "py_src"},
     entry_points={
         "console_scripts": ["sudachipy=sudachipy.command_line:main"],
+    },
+    extras_require={
+        "tests": [
+            "tokenizers", "sudachidict_core"
+        ]
     },
     # rust extensions are not zip safe, just like C-extensions.
     zip_safe=False,

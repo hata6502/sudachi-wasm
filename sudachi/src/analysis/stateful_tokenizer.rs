@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2021 Works Applications Co., Ltd.
+ *  Copyright (c) 2021-2024 Works Applications Co., Ltd.
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -14,16 +14,21 @@
  *  limitations under the License.
  */
 
+use crate::analysis::created::CreatedWords;
 use crate::analysis::inner::{Node, NodeIdx};
 use crate::analysis::lattice::Lattice;
 use crate::analysis::node::{LatticeNode, ResultNode};
 use crate::analysis::stateless_tokenizer::{dump_path, split_path, DictionaryAccess};
 use crate::analysis::Mode;
 use crate::dic::category_type::CategoryType;
-use crate::dic::lexicon::word_infos::WordInfo;
+use crate::dic::connect::ConnectionMatrix;
+use crate::dic::lexicon::word_infos::WordInfoData;
+use crate::dic::lexicon_set::LexiconSet;
+use crate::dic::subset::InfoSubset;
 use crate::error::{SudachiError, SudachiResult};
 use crate::input_text::InputBuffer;
 use crate::input_text::InputTextIndex;
+use crate::plugin::oov::OovProviderPlugin;
 use crate::prelude::MorphemeList;
 
 pub struct StatefulTokenizer<D> {
@@ -35,6 +40,7 @@ pub struct StatefulTokenizer<D> {
     lattice: Lattice,
     top_path_ids: Vec<NodeIdx>,
     top_path: Option<Vec<ResultNode>>,
+    subset: InfoSubset,
 }
 
 impl<D: DictionaryAccess + Clone> StatefulTokenizer<D> {
@@ -61,6 +67,7 @@ impl<D: DictionaryAccess> StatefulTokenizer<D> {
             lattice: Lattice::default(),
             top_path_ids: Vec::new(),
             top_path: Some(Vec::new()),
+            subset: InfoSubset::all(),
         }
     }
 
@@ -71,13 +78,36 @@ impl<D: DictionaryAccess> StatefulTokenizer<D> {
 
     /// Set the analysis mode and returns the current one
     pub fn set_mode(&mut self, mode: Mode) -> Mode {
+        self.subset |= match mode {
+            Mode::A => InfoSubset::SPLIT_A,
+            Mode::B => InfoSubset::SPLIT_B,
+            _ => InfoSubset::empty(),
+        };
         std::mem::replace(&mut self.mode, mode)
+    }
+
+    /// Return current analysis mode
+    pub fn mode(&self) -> Mode {
+        self.mode
+    }
+
+    /// Analyzer will read only following [`WordInfo`] field subset
+    pub fn set_subset(&mut self, subset: InfoSubset) -> InfoSubset {
+        let mode_subset = match self.mode {
+            Mode::A => InfoSubset::SPLIT_A,
+            Mode::B => InfoSubset::SPLIT_B,
+            _ => InfoSubset::empty(),
+        };
+        let new_subset = (subset | mode_subset).normalize();
+        std::mem::replace(&mut self.subset, new_subset | mode_subset)
     }
 
     /// Prepare StatefulTokenizer for the next data.
     /// Data must be written in the returned reference.
     pub fn reset(&mut self) -> &mut String {
-        self.top_path.as_mut().map(|p| p.clear());
+        if let Some(p) = self.top_path.as_mut() {
+            p.clear()
+        }
         self.oov.clear();
         self.input.reset()
     }
@@ -118,24 +148,22 @@ impl<D: DictionaryAccess> StatefulTokenizer<D> {
 
         if debug {
             println!("=== Before Rewriting:");
-            dump_path(self.top_path.as_ref().unwrap());
+            dump_path(&path);
         };
 
         for plugin in self.dictionary.path_rewrite_plugins() {
             path = plugin.rewrite(&self.input, path, &self.lattice)?;
         }
 
-        path = split_path(&self.dictionary, path, self.mode)?;
-
-        self.translate_indices(&mut path);
-
-        self.top_path = Some(path);
+        path = split_path(&self.dictionary, path, self.mode, self.subset, &self.input)?;
 
         if debug {
             println!("=== After Rewriting:");
-            dump_path(self.top_path.as_ref().unwrap());
+            dump_path(&path);
             println!("===");
         };
+
+        self.top_path = Some(path);
 
         Ok(())
     }
@@ -143,21 +171,21 @@ impl<D: DictionaryAccess> StatefulTokenizer<D> {
     /// Resolve the path (as ResultNodes) with the smallest cost
     fn resolve_best_path(&mut self) -> SudachiResult<Vec<ResultNode>> {
         let lex = self.dictionary.lexicon();
-        let mut path = std::mem::replace(&mut self.top_path, None).unwrap_or_else(|| Vec::new());
+        let mut path = self.top_path.take().unwrap_or_default();
         self.lattice.fill_top_path(&mut self.top_path_ids);
         self.top_path_ids.reverse();
         for pid in self.top_path_ids.drain(..) {
             let (inner, cost) = self.lattice.node(pid);
             let wi = if inner.word_id().is_oov() {
                 let curr_slice = self.input.curr_slice_c(inner.char_range()).to_owned();
-                WordInfo {
+                WordInfoData {
                     pos_id: inner.word_id().word() as u16,
-                    dictionary_form: curr_slice.clone(),
-                    normalized_form: curr_slice,
+                    surface: curr_slice,
                     ..Default::default()
                 }
+                .into()
             } else {
-                lex.get_word_info(inner.word_id())?
+                lex.get_word_info_subset(inner.word_id(), self.subset)?
             };
 
             let byte_begin = self.input.to_curr_byte_idx(inner.begin());
@@ -174,23 +202,16 @@ impl<D: DictionaryAccess> StatefulTokenizer<D> {
         Ok(path)
     }
 
-    /// Translate ResultNode indices from normalized data to original data
-    fn translate_indices(&self, path: &mut Vec<ResultNode>) {
-        let input = &self.input;
-        for elem in path {
-            let char_begin = input.to_orig_char_idx(elem.begin());
-            let char_end = input.to_orig_char_idx(elem.end());
-            let byte_begin = input.to_orig_byte_idx(elem.begin());
-            let byte_end = input.to_orig_byte_idx(elem.end());
-            elem.set_char_range(char_begin as u16, char_end as u16);
-            elem.set_bytes_range(byte_begin as u16, byte_end as u16);
-        }
-    }
-
     /// Swap result data with the current analyzer
-    pub fn swap_result(&mut self, input: &mut String, result: &mut Vec<ResultNode>) {
-        self.input.swap_original(input);
+    pub fn swap_result(
+        &mut self,
+        input: &mut InputBuffer,
+        result: &mut Vec<ResultNode>,
+        subset: &mut InfoSubset,
+    ) {
+        std::mem::swap(&mut self.input, input);
         std::mem::swap(self.top_path.as_mut().unwrap(), result);
+        *subset = self.subset;
     }
 
     fn rewrite_input(&mut self) -> SudachiResult<()> {
@@ -201,31 +222,62 @@ impl<D: DictionaryAccess> StatefulTokenizer<D> {
     }
 
     fn build_lattice(&mut self) -> SudachiResult<()> {
-        let input = &self.input;
-        let dict = &self.dictionary;
-        let input_bytes = input.current().as_bytes();
-        let oovs = &mut self.oov;
-        let lattice = &mut self.lattice;
+        let mut builder = LatticeBuilder {
+            node_buffer: &mut self.oov,
+            lattice: &mut self.lattice,
+            matrix: self.dictionary.grammar().conn_matrix(),
+            oov_providers: self.dictionary.oov_provider_plugins(),
+            lexicon: self.dictionary.lexicon(),
+            input: &self.input,
+        };
+        builder.build_lattice()
+    }
 
-        lattice.reset(input.current_chars().len());
+    /// Consume the Tokenizer and produce MorphemeList
+    pub fn into_morpheme_list(self) -> SudachiResult<MorphemeList<D>> {
+        match self.top_path {
+            None => Err(SudachiError::EosBosDisconnect),
+            Some(path) => Ok(MorphemeList::from_components(
+                self.dictionary,
+                self.input,
+                path,
+                self.subset,
+            )),
+        }
+    }
+}
 
-        for (ch_off, &byte_off) in input.curr_byte_offsets().iter().enumerate() {
-            if !input.can_bow(byte_off) {
+// This structure is purely for Rust.
+// Otherwise splitting code into functions fails to compile with double borrow errors
+struct LatticeBuilder<'a> {
+    node_buffer: &'a mut Vec<Node>,
+    lattice: &'a mut Lattice,
+    matrix: &'a ConnectionMatrix<'a>,
+    input: &'a InputBuffer,
+    lexicon: &'a LexiconSet<'a>,
+    oov_providers: &'a [Box<dyn OovProviderPlugin + Sync + Send>],
+}
+
+impl<'a> LatticeBuilder<'a> {
+    #[inline]
+    fn build_lattice(&mut self) -> SudachiResult<()> {
+        self.lattice.reset(self.input.current_chars().len());
+        let input_bytes = self.input.current().as_bytes();
+
+        for (ch_off, &byte_off) in self.input.curr_byte_offsets().iter().enumerate() {
+            if !self.lattice.has_previous_node(ch_off) {
                 continue;
             }
 
-            if !lattice.has_previous_node(ch_off) {
-                continue;
-            }
-
-            let mut has_word = false;
-            for e in dict.lexicon().lookup(input_bytes, byte_off) {
-                if (e.end < input_bytes.len()) && !input.can_bow(e.end) {
+            self.node_buffer.clear();
+            let mut created = CreatedWords::default();
+            for e in self.lexicon.lookup(input_bytes, byte_off) {
+                // do we really need input.can_bow condition?
+                if (e.end < input_bytes.len()) && !self.input.can_bow(e.end) {
                     continue;
                 }
-                has_word = true;
-                let (left_id, right_id, cost) = dict.lexicon().get_word_param(e.word_id)?;
-                let end_c = input.ch_idx(e.end);
+                let (left_id, right_id, cost) = self.lexicon.get_word_param(e.word_id);
+                let end_c = self.input.ch_idx(e.end);
                 let node = Node::new(
                     ch_off as u16,
                     end_c as u16,
@@ -234,48 +286,53 @@ impl<D: DictionaryAccess> StatefulTokenizer<D> {
                     cost,
                     e.word_id,
                 );
-                lattice.insert(node, dict.grammar().conn_matrix());
+                created = created.add_word((end_c - ch_off) as i64);
+                self.node_buffer.push(node.clone());
+                self.lattice.insert(node, self.matrix);
             }
 
             // OOV
-            if !input.cat_at_char(ch_off).contains(CategoryType::NOOOVBOW) {
-                for oov_provider in dict.oov_provider_plugins() {
-                    oov_provider.get_oov(&input, ch_off, has_word, oovs)?;
-                }
-                for node in oovs.drain(..) {
-                    has_word = true;
-                    lattice.insert(node, dict.grammar().conn_matrix());
-                }
-            }
-
-            if !has_word {
-                dict.oov_provider_plugins()
-                    .last()
-                    .unwrap()
-                    .get_oov(&input, ch_off, has_word, oovs)?;
-                // use last oov_provider as default
-                for node in oovs.drain(..) {
-                    has_word = true;
-                    lattice.insert(node, dict.grammar().conn_matrix());
+            if !self
+                .input
+                .cat_at_char(ch_off)
+                .intersects(CategoryType::NOOOVBOW | CategoryType::NOOOVBOW2)
+            {
+                for provider in self.oov_providers {
+                    created = self.provide_oovs(ch_off, created, provider.as_ref())?;
                 }
             }
 
-            if !has_word {
-                panic!("no morpheme found at {}", byte_off);
+            if created.is_empty() {
+                let provider = self.oov_providers.last().unwrap();
+                created = self.provide_oovs(ch_off, created, provider.as_ref())?;
+            }
+
+            if created.is_empty() {
+                return Err(SudachiError::EosBosDisconnect);
             }
         }
-        lattice.connect_eos(dict.grammar().conn_matrix())?;
+        self.lattice.connect_eos(self.matrix)?;
 
         Ok(())
     }
 
-    /// Consume the Tokenizer and produce MorphemeList
-    pub fn into_morpheme_list(self) -> SudachiResult<MorphemeList<D>> {
-        match self.top_path {
-            None => Err(SudachiError::EosBosDisconnect),
-            Some(path) => {
-                MorphemeList::from_components(self.dictionary, self.input.into_original(), path)
-            }
+    #[inline]
+    fn provide_oovs<P>(
+        &mut self,
+        char_offset: usize,
+        mut other: CreatedWords,
+        plugin: &P,
+    ) -> SudachiResult<CreatedWords>
+    where
+        P: OovProviderPlugin + 'a + ?Sized,
+    {
+        let start_size = self.node_buffer.len();
+        let num_provided = plugin.provide_oov(self.input, char_offset, other, self.node_buffer)?;
+        for idx in start_size..(start_size + num_provided) {
+            let node = self.node_buffer[idx].clone();
+            other = other.add_word(node.char_range().len() as i64);
+            self.lattice.insert(node, self.matrix);
         }
+        Ok(other)
     }
 }

@@ -27,8 +27,25 @@ class TestTokenizer(unittest.TestCase):
             resource_dir, 'sudachi.json'), resource_dir)
         self.tokenizer_obj = self.dict_.create()
 
-    def test_nothing(self):
-        pass
+    def test_split_mode_default(self):
+        mode_c = SplitMode()
+        self.assertEqual(mode_c, SplitMode.C)
+
+    def test_split_mode_from_string_a(self):
+        mode = SplitMode("A")
+        self.assertEqual(mode, SplitMode.A)
+
+    def test_split_mode_from_string_b(self):
+        mode = SplitMode("B")
+        self.assertEqual(mode, SplitMode.B)
+
+    def test_split_mode_from_string_c(self):
+        mode = SplitMode("C")
+        self.assertEqual(mode, SplitMode.C)
+
+    def test_tokenizer_with_split_mode_str(self):
+        tok_a = self.dict_.create("A")
+        self.assertEqual(tok_a.mode, SplitMode.A)
 
     def test_tokenize_small_katanana_only(self):
         ms = self.tokenizer_obj.tokenize('ァ')
@@ -41,19 +58,19 @@ class TestTokenizer(unittest.TestCase):
         pid = m.part_of_speech_id()
         self.assertEqual(3, pid)
         pos = m.part_of_speech()
-        self.assertEqual(['名詞', '固有名詞', '地名', '一般', '*', '*'], pos)
+        self.assertEqual(('名詞', '固有名詞', '地名', '一般', '*', '*'), pos)
 
     def test_get_word_id(self):
         ms = self.tokenizer_obj.tokenize('京都')
         self.assertEqual(1, len(ms))
-        self.assertEqual(['名詞', '固有名詞', '地名', '一般', '*', '*'],
+        self.assertEqual(('名詞', '固有名詞', '地名', '一般', '*', '*'),
                          ms[0].part_of_speech())
 
         wid = ms[0].word_id()
         ms = self.tokenizer_obj.tokenize('ぴらる')
         self.assertEqual(1, len(ms))
         self.assertNotEqual(wid, ms[0].word_id())
-        self.assertEqual(['名詞', '普通名詞', '一般', '*', '*', '*'],
+        self.assertEqual(('名詞', '普通名詞', '一般', '*', '*', '*'),
                          ms[0].part_of_speech())
 
         ms = self.tokenizer_obj.tokenize('京')
@@ -110,6 +127,16 @@ class TestTokenizer(unittest.TestCase):
         self.assertEqual(ms_a[0].surface(), '東京')
         self.assertEqual(ms_a[1].surface(), '都')
 
+    def test_tokenizer_morpheme_split_strings(self):
+        ms = self.tokenizer_obj.tokenize('東京都', 'C')
+        self.assertEqual(1, ms.size())
+        self.assertEqual(ms[0].surface(), '東京都')
+
+        ms_a = ms[0].split('A')
+        self.assertEqual(2, ms_a.size())
+        self.assertEqual(ms_a[0].surface(), '東京')
+        self.assertEqual(ms_a[1].surface(), '都')
+
     def test_tokenizer_morpheme_list_range(self):
         ms = self.tokenizer_obj.tokenize('東京都', SplitMode.A)
         self.assertEqual(2, ms.size())
@@ -118,10 +145,26 @@ class TestTokenizer(unittest.TestCase):
 
         self.assertEqual(ms[-1].surface(), ms[1].surface())
         self.assertEqual(ms[-2].surface(), ms[0].surface())
-        with self.assertRaises(IndexError) as cm:
+        with self.assertRaises(IndexError):
             ms[2]
-        with self.assertRaises(IndexError) as cm:
+        with self.assertRaises(IndexError):
             ms[-3]
+
+    def test_tokenizer_subset(self):
+        ms1 = self.tokenizer_obj.tokenize('東京都')
+
+        tok = self.dict_.create(fields={"pos"})
+        ms2 = tok.tokenize('東京都')
+        self.assertEqual(ms1[0].part_of_speech_id(), ms2[0].part_of_speech_id())
+
+    def test_tokenizer_out_param(self):
+        ms1 = self.tokenizer_obj.tokenize('東京都東京府')
+        m = ms1[0]
+        self.assertEqual(m.surface(), '東京都')
+
+        ms2 = self.tokenizer_obj.tokenize('すだち', out=ms1)
+        self.assertEqual(id(ms1), id(ms2))
+        self.assertEqual(m.surface(), 'すだち')
 
 
 if __name__ == '__main__':

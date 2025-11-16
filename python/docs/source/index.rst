@@ -3,19 +3,27 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to SudachiPy's documentation!
+Welcome to SudachiPy documentation!
 =====================================
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Topics
+
+   topics/out_param
+   topics/subsetting
+   topics/wheels
+
 
 .. toctree::
    :maxdepth: 2
    :caption: API Reference:
 
-   sudachipy
-   sudachipy.dictionary
-   sudachipy.tokenizer
-   sudachipy.morphemelist
-   sudachipy.morpheme
-   wheels
+   api/sudachipy
+   api/sudachipy.dictionary
+   api/sudachipy.tokenizer
+   api/sudachipy.morphemelist
+   api/sudachipy.morpheme
 
 
 Indices and tables

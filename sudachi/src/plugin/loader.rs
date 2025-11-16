@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2021 Works Applications Co., Ltd.
+ *  Copyright (c) 2021-2024 Works Applications Co., Ltd.
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -45,14 +45,14 @@ impl<T: PluginCategory + ?Sized> Drop for PluginContainer<T> {
     }
 }
 
-struct PluginLoader<'a, T: PluginCategory + ?Sized> {
+struct PluginLoader<'a, 'b, T: PluginCategory + ?Sized> {
     cfg: &'a Config,
-    grammar: &'a Grammar<'a>,
+    grammar: &'a mut Grammar<'b>,
     libraries: Vec<Library>,
     plugins: Vec<<T as PluginCategory>::BoxType>,
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "freebsd"))]
 fn make_system_specific_name(s: &str) -> String {
     format!("lib{}.so", s)
 }
@@ -75,7 +75,7 @@ fn system_specific_name(s: &str) -> Option<String> {
         let fname = p
             .file_name()
             .and_then(|np| np.to_str())
-            .map(|f| make_system_specific_name(f));
+            .map(make_system_specific_name);
         let parent = p.parent().and_then(|np| np.to_str());
         match (parent, fname) {
             (Some(p), Some(c)) => Some(format!("{}/{}", p, c)),
@@ -84,8 +84,8 @@ fn system_specific_name(s: &str) -> Option<String> {
     }
 }
 
-impl<'a, T: PluginCategory + ?Sized> PluginLoader<'a, T> {
-    pub fn new(grammar: &'a Grammar, config: &'a Config) -> PluginLoader<'a, T> {
+impl<'a, 'b, T: PluginCategory + ?Sized> PluginLoader<'a, 'b, T> {
+    pub fn new(grammar: &'a mut Grammar<'b>, config: &'a Config) -> PluginLoader<'a, 'b, T> {
         PluginLoader {
             cfg: config,
             grammar,
@@ -104,10 +104,10 @@ impl<'a, T: PluginCategory + ?Sized> PluginLoader<'a, T> {
     }
 
     pub fn freeze(self) -> PluginContainer<T> {
-        return PluginContainer {
+        PluginContainer {
             libraries: self.libraries,
             plugins: self.plugins,
-        };
+        }
     }
 
     fn load_plugin(&mut self, name: &str, plugin_cfg: &Value) -> SudachiResult<()> {
@@ -127,23 +127,24 @@ impl<'a, T: PluginCategory + ?Sized> PluginLoader<'a, T> {
                 self.load_plugin_from_dso(&candidates)?
             };
 
-        <T as PluginCategory>::do_setup(&mut plugin, plugin_cfg, &self.cfg, &self.grammar)?;
+        <T as PluginCategory>::do_setup(&mut plugin, plugin_cfg, self.cfg, self.grammar)
+            .map_err(|e| e.with_context(format!("plugin {} setup", name)))?;
         self.plugins.push(plugin);
         Ok(())
     }
 
     fn resolve_dso_names(&self, name: &str) -> Vec<String> {
-        let mut resolved = self.cfg.resolve_plugin_paths(name.to_owned());
+        let mut resolved = self.cfg.resolve_paths(name.to_owned());
 
         if let Some(sysname) = system_specific_name(name) {
-            let resolved_sys = self.cfg.resolve_plugin_paths(sysname);
+            let resolved_sys = self.cfg.resolve_paths(sysname);
             resolved.extend(resolved_sys);
         }
 
         resolved
     }
 
-    fn try_load_library_from(candidates: &[String]) -> SudachiResult<Library> {
+    fn try_load_library_from(candidates: &[String]) -> SudachiResult<(Library, &str)> {
         if candidates.is_empty() {
             return Err(SudachiError::PluginError(PluginError::InvalidDataFormat(
                 "No candidates to load library".to_owned(),
@@ -153,7 +154,7 @@ impl<'a, T: PluginCategory + ?Sized> PluginLoader<'a, T> {
         let mut last_error = libloading::Error::IncompatibleSize;
         for p in candidates.iter() {
             match unsafe { Library::new(p.as_str()) } {
-                Ok(lib) => return Ok(lib),
+                Ok(lib) => return Ok((lib, p.as_str())),
                 Err(e) => last_error = e,
             }
         }
@@ -167,9 +168,12 @@ impl<'a, T: PluginCategory + ?Sized> PluginLoader<'a, T> {
         &mut self,
         candidates: &[String],
     ) -> SudachiResult<<T as PluginCategory>::BoxType> {
-        let lib = Self::try_load_library_from(candidates)?;
+        let (lib, path) = Self::try_load_library_from(candidates)?;
         let load_fn: Symbol<fn() -> SudachiResult<<T as PluginCategory>::BoxType>> =
-            unsafe { lib.get(b"load_plugin")? };
+            unsafe { lib.get(b"load_plugin") }.map_err(|e| PluginError::Libloading {
+                source: e,
+                message: format!("no load_plugin symbol in {}", path),
+            })?;
         let plugin = load_fn();
         self.libraries.push(lib);
         plugin
@@ -179,9 +183,9 @@ impl<'a, T: PluginCategory + ?Sized> PluginLoader<'a, T> {
 fn extract_plugin_class(val: &Value) -> SudachiResult<&str> {
     let obj = match val {
         Value::Object(v) => v,
-        _ => {
+        o => {
             return Err(SudachiError::ConfigError(ConfigError::InvalidFormat(
-                "plugin config must be an object".to_owned(),
+                format!("plugin config must be an object, was {}", o),
             )));
         }
     };
@@ -220,16 +224,16 @@ pub trait PluginCategory {
         ptr: &mut Self::BoxType,
         settings: &Value,
         config: &Config,
-        grammar: &Grammar,
+        grammar: &mut Grammar,
     ) -> SudachiResult<()>;
 }
 
 /// Helper function to load the plugins of a single category
 /// Should be called with turbofish syntax and trait object type:
 /// `let plugins = load_plugins_of::<dyn InputText>(...)`.
-pub fn load_plugins_of<T: PluginCategory + ?Sized>(
-    cfg: &Config,
-    grammar: &Grammar,
+pub fn load_plugins_of<'a, T: PluginCategory + ?Sized>(
+    cfg: &'a Config,
+    grammar: &'a mut Grammar<'_>,
 ) -> SudachiResult<PluginContainer<T>> {
     let mut loader: PluginLoader<T> = PluginLoader::new(grammar, cfg);
     loader.load()?;
