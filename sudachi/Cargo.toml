@@ -40,4 +40,4 @@ join_numeric = { path = "../plugin/path_rewrite/join_numeric" }
 join_katakana_oov = { path = "../plugin/path_rewrite/join_katakana_oov" }
 
 [lib]
-crate-type = ["cdylib", "rlib"]
+crate-type = ["rlib"]
