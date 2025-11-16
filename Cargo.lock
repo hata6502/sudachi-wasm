@@ -864,6 +864,7 @@ dependencies = [
  "tempfile",
  "thiserror",
  "unicode-normalization",
+ "wasm-bindgen",
  "yada",
 ]
 

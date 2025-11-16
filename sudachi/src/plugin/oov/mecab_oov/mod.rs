@@ -19,7 +19,6 @@ use crate::util::user_pos::{UserPosMode, UserPosSupport};
 use serde::Deserialize;
 use serde_json::Value;
 use std::collections::HashMap;
-use std::fs;
 use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
 
@@ -265,7 +264,7 @@ impl OovProviderPlugin for MeCabOovPlugin {
         );
 
         let categories = if char_def_path.is_ok() {
-            let reader = BufReader::new(&include_bytes!("../../resources/char.def")[0..]);
+            let reader = BufReader::new(&include_bytes!("../../../../../resources/char.def")[0..]);
             MeCabOovPlugin::read_character_property(reader)?
         } else {
             let reader = BufReader::new(DEFAULT_CHAR_DEF_BYTES);
@@ -279,7 +278,7 @@ impl OovProviderPlugin for MeCabOovPlugin {
         );
 
         let oov_list = if unk_def_path.is_ok() {
-            let reader = BufReader::new(&include_bytes!("../../resources/unk.def")[0..]);
+            let reader = BufReader::new(&include_bytes!("../../../../../resources/unk.def")[0..]);
             MeCabOovPlugin::read_oov(reader, &categories, grammar, settings.userPOS)?
         } else {
             let reader = BufReader::new(DEFAULT_UNK_DEF_BYTES);

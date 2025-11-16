@@ -53,7 +53,7 @@ use tokenizer::{Tokenize, Tokenizer};
 use wasm_bindgen::prelude::*;
 
 // embed dictionary binary file
-const BYTES: &[u8; 122037852] = include_bytes!("resources/system.dic");
+const BYTES: &[u8; 217190142] = include_bytes!("../../resources/system.dic");
 
 #[wasm_bindgen]
 pub enum TokenizeMode {
