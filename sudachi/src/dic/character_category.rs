@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Works Applications Co., Ltd.
+ * Copyright (c) 2021-2024 Works Applications Co., Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,11 +15,10 @@
  */
 
 use std::collections::BTreeSet;
-use std::fs;
 use std::io::{BufRead, BufReader};
 use std::iter::FusedIterator;
 use std::ops::Range;
-use std::path::PathBuf;
+use std::path::Path;
 
 use thiserror::Error;
 
@@ -80,8 +79,13 @@ impl Default for CharacterCategory {
 
 impl CharacterCategory {
     /// Creates a character category from file
-    pub fn from_file(path: &PathBuf) -> SudachiResult<CharacterCategory> {
-        let reader = BufReader::new(&include_bytes!("../resources/char.def")[0..]);
+    pub fn from_file(_path: &Path) -> SudachiResult<CharacterCategory> {
+        let reader = BufReader::new(&include_bytes!("../../../resources/char.def")[0..]);
+        Self::from_reader(reader)
+    }
+
+    pub fn from_bytes(bytes: &[u8]) -> SudachiResult<CharacterCategory> {
+        let reader = BufReader::new(bytes);
         Self::from_reader(reader)
     }
 
@@ -144,10 +148,7 @@ impl CharacterCategory {
             }
 
             let mut categories = CategoryType::empty();
-            for elem in cols[1..]
-                .iter()
-                .take_while(|elem| elem.chars().next().unwrap() != '#')
-            {
+            for elem in cols[1..].iter().take_while(|elem| !elem.starts_with('#')) {
                 categories.insert(match elem.parse() {
                     Ok(t) => t,
                     Err(_) => {
@@ -287,7 +288,7 @@ impl Iterator for CharCategoryIter<'_> {
             (left..char::MAX, *self.categories.categories.last().unwrap())
         } else if self.current == 0 {
             let right = char::from_u32(*self.categories.boundaries.first().unwrap()).unwrap();
-            let r = (0 as char)..right as char;
+            let r = (0 as char)..right;
             (r, self.categories.categories[0])
         } else {
             let left = char::from_u32(self.categories.boundaries[self.current - 1]).unwrap();
@@ -307,6 +308,7 @@ impl FusedIterator for CharCategoryIter<'_> {}
 mod tests {
     use super::*;
     use claim::assert_matches;
+    use std::path::PathBuf;
 
     const TEST_RESOURCE_DIR: &str = "./tests/resources/";
     const TEST_CHAR_DEF_FILE: &str = "char.def";

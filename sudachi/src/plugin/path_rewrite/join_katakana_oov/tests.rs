@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Works Applications Co., Ltd.
+ * Copyright (c) 2021-2024 Works Applications Co., Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@ use super::*;
 use crate::analysis::Node;
 use crate::dic::character_category::CharacterCategory;
 use crate::dic::grammar::Grammar;
-use crate::dic::lexicon::word_infos::WordInfo;
+use crate::dic::lexicon::word_infos::WordInfoData;
 use crate::dic::word_id::WordId;
 use crate::test::zero_grammar;
 use lazy_static::lazy_static;
@@ -88,7 +88,10 @@ fn start_with_middle() {
 
 #[test]
 fn start_with_tail() {
-    let mut plugin = JoinKatakanaOovPlugin::default();
+    let plugin = JoinKatakanaOovPlugin {
+        min_length: 3,
+        ..Default::default()
+    };
     let text = build_text("アイウアイウアイ");
     let path = vec![
         build_node_aiu(0, 9, 5562),
@@ -96,7 +99,6 @@ fn start_with_tail() {
         build_node_ai(18, 24, 19594),
     ];
 
-    plugin.min_length = 3;
     let path = plugin
         .rewrite(&text, path, &Lattice::default())
         .expect("Failed to rewrite path");
@@ -105,8 +107,10 @@ fn start_with_tail() {
 
 #[test]
 fn with_noovbow() {
-    let mut plugin = JoinKatakanaOovPlugin::default();
-    plugin.min_length = 3;
+    let plugin = JoinKatakanaOovPlugin {
+        min_length: 3,
+        ..Default::default()
+    };
 
     let text = build_text("ァアイアイウ");
 
@@ -119,7 +123,7 @@ fn with_noovbow() {
         .rewrite(&text, path, &Lattice::default())
         .expect("Failed to rewrite path");
     assert_eq!(2, path.len());
-    assert_eq!("ァ", path[0].word_info().surface);
+    assert_eq!("ァ", path[0].word_info().surface());
 
     let text = build_text("アイウァアイウ");
     let path = vec![
@@ -156,14 +160,15 @@ fn build_node(start: usize, end: usize, cost: i32, surface: &str) -> ResultNode 
         cost,
         start as u16,
         end as u16,
-        WordInfo {
+        WordInfoData {
             surface: surface.to_string(),
             normalized_form: surface.to_string(),
             dictionary_form: surface.to_string(),
             pos_id: 4,
             dictionary_form_word_id: -1,
             ..Default::default()
-        },
+        }
+        .into(),
     )
 }
 
@@ -182,14 +187,15 @@ fn build_node_oov(start: usize, end: usize, cost: i32, surface: &str) -> ResultN
         cost,
         start as u16,
         end as u16,
-        WordInfo {
+        WordInfoData {
             surface: surface.to_string(),
             normalized_form: surface.to_string(),
             dictionary_form: surface.to_string(),
             pos_id: 4,
             dictionary_form_word_id: -1,
             ..Default::default()
-        },
+        }
+        .into(),
     )
 }
 

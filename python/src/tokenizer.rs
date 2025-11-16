@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2021 Works Applications Co., Ltd.
+ *  Copyright (c) 2021-2024 Works Applications Co., Ltd.
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -14,44 +14,40 @@
  *  limitations under the License.
  */
 
+use std::ops::DerefMut;
+use std::str::FromStr;
 use std::sync::Arc;
 
-use pyo3::exceptions::PyException;
 use pyo3::prelude::*;
-use sudachi::analysis::stateful_tokenizer::StatefulTokenizer;
 
-use sudachi::dic::dictionary::JapaneseDictionary;
+use sudachi::analysis::stateful_tokenizer::StatefulTokenizer;
+use sudachi::dic::subset::InfoSubset;
 use sudachi::prelude::*;
 
+use crate::dictionary::{extract_mode, PyDicData};
+use crate::errors;
 use crate::morpheme::PyMorphemeListWrapper;
+use crate::projection::PyProjector;
 
-/// Unit to split text
+/// Unit to split text.
 ///
 /// A == short mode
 ///
 /// B == middle mode
 ///
 /// C == long mode
-//
-// This implementation is a workaround. Waiting for the pyo3 enum feature.
-// ref: [PyO3 issue #834](https://github.com/PyO3/pyo3/issues/834).
-#[pyclass(module = "sudachipy.tokenizer", name = "SplitMode")]
-#[derive(Clone, PartialEq, Eq)]
-#[repr(transparent)]
-pub struct PySplitMode {
-    mode: u8,
-}
-
-#[pymethods]
-impl PySplitMode {
-    #[classattr]
-    pub const A: Self = Self { mode: 0 };
-
-    #[classattr]
-    pub const B: Self = Self { mode: 1 };
-
-    #[classattr]
-    pub const C: Self = Self { mode: 2 };
+///
+/// :param mode: string representation of the split mode. One of [A,B,C] in captital or lower case.
+///     If None, returns SplitMode.C.
+///
+/// :type mode: str | None
+#[pyclass(module = "sudachipy.tokenizer", name = "SplitMode", eq, eq_int, frozen)]
+#[derive(Clone, PartialEq, Eq, Copy, Debug)]
+#[repr(u8)]
+pub enum PySplitMode {
+    A,
+    B,
+    C,
 }
 
 impl From<PySplitMode> for Mode {
@@ -59,22 +55,65 @@ impl From<PySplitMode> for Mode {
         match mode {
             PySplitMode::A => Mode::A,
             PySplitMode::B => Mode::B,
-            _ => Mode::C,
+            PySplitMode::C => Mode::C,
         }
     }
 }
 
-/// Tokenizer of morphelogical analysis
+impl From<Mode> for PySplitMode {
+    fn from(value: Mode) -> Self {
+        match value {
+            Mode::A => PySplitMode::A,
+            Mode::B => PySplitMode::B,
+            Mode::C => PySplitMode::C,
+        }
+    }
+}
+
+#[pymethods]
+impl PySplitMode {
+    /// Creates a split mode from a string value.
+    ///
+    /// :param mode: string representation of the split mode. One of [A,B,C] in captital or lower case.
+    ///     If None, returns SplitMode.C.
+    ///
+    /// :type mode: str | None
+    #[new]
+    #[pyo3(
+        signature = (mode=None),
+        text_signature = "(mode=None) -> SplitMode"
+    )]
+    fn new(mode: Option<&str>) -> PyResult<PySplitMode> {
+        let mode = match mode {
+            Some(m) => m,
+            None => return Ok(PySplitMode::C),
+        };
+        errors::wrap(Mode::from_str(mode).map(|m| m.into()))
+    }
+}
+
+/// A sudachi tokenizer
+///
+/// Create using Dictionary.create method.
 #[pyclass(module = "sudachipy.tokenizer", name = "Tokenizer")]
-pub struct PyTokenizer {
-    tokenizer: StatefulTokenizer<Arc<JapaneseDictionary>>,
+pub(crate) struct PyTokenizer {
+    tokenizer: StatefulTokenizer<Arc<PyDicData>>,
+    projection: PyProjector,
 }
 
 impl PyTokenizer {
-    pub fn new(dict: Arc<JapaneseDictionary>, mode: Mode) -> Self {
-        Self {
+    pub(crate) fn new(
+        dict: Arc<PyDicData>,
+        mode: Mode,
+        fields: InfoSubset,
+        projection: PyProjector,
+    ) -> Self {
+        let mut tok = Self {
             tokenizer: StatefulTokenizer::new(dict, mode),
-        }
+            projection,
+        };
+        tok.tokenizer.set_subset(fields);
+        tok
     }
 }
 
@@ -86,37 +125,80 @@ impl PyTokenizer {
         PySplitMode::C
     }
 
-    /// Break text into morphemes
+    /// Break text into morphemes.
     ///
-    /// In default tokenize text with SplitMode.C.
-    /// The logger provided is ignored.
-    /// If out is provided, its contents will be rewritten with
-    #[pyo3(text_signature = "($self, text, /, mode=None, logger=None) -> sudachipy.MorphemeList")]
-    #[args(text, mode = "None", logger = "None")]
+    /// :param text: text to analyze.
+    /// :param mode: analysis mode.
+    ///    This parameter is deprecated.
+    ///    Pass the analysis mode at the Tokenizer creation time and create different tokenizers for different modes.
+    ///    If you need multi-level splitting, prefer using :py:meth:`Morpheme.split` method instead.
+    /// :param logger: Arg for v0.5.* compatibility. Ignored.
+    /// :param out: tokenization results will be written into this MorphemeList, a new one will be created instead.
+    ///    See https://worksapplications.github.io/sudachi.rs/python/topics/out_param.html for details.
+    ///
+    /// :type text: str
+    /// :type mode: SplitMode | str | None
+    /// :type out: MorphemeList
+    #[pyo3(
+        text_signature="(self, /, text: str, mode=None, logger=None, out=None) -> MorphemeList",
+        signature=(text, mode=None, logger=None, out=None)
+    )]
     #[allow(unused_variables)]
-    fn tokenize(
-        &mut self,
-        text: &str,
-        mode: Option<PySplitMode>,
+    fn tokenize<'py>(
+        &'py mut self,
+        py: Python<'py>,
+        text: &'py str,
+        mode: Option<&Bound<'py, PyAny>>,
         logger: Option<PyObject>,
-    ) -> PyResult<PyMorphemeListWrapper> {
-        mode.map(|m| self.tokenizer.set_mode(m.into()));
+        out: Option<Bound<'py, PyMorphemeListWrapper>>,
+    ) -> PyResult<Bound<PyMorphemeListWrapper>> {
+        // restore default mode on scope exit
+        let mode = match mode {
+            None => None,
+            Some(m) => Some(extract_mode(m)?),
+        };
+        let default_mode = mode.map(|m| self.tokenizer.set_mode(m));
+        let mut tokenizer = scopeguard::guard(&mut self.tokenizer, |t| {
+            default_mode.map(|m| t.set_mode(m));
+        });
 
-        self.tokenizer.reset().push_str(text);
-        self.tokenizer.do_tokenize().map_err(|e| {
-            PyException::new_err(format!("Error while tokenization: {}", e.to_string()))
-        })?;
+        // analysis can be done without GIL
+        errors::wrap_ctx(
+            py.allow_threads(|| {
+                tokenizer.reset().push_str(text);
+                tokenizer.do_tokenize()
+            }),
+            "Error during tokenization",
+        )?;
 
-        let mut morphemes = MorphemeList::empty(self.tokenizer.dict_clone());
+        let out_list = match out {
+            None => {
+                let dict = tokenizer.dict_clone();
+                let morphemes = MorphemeList::empty(dict);
+                let wrapper =
+                    PyMorphemeListWrapper::from_components(morphemes, self.projection.clone());
+                Bound::new(py, wrapper)?
+            }
+            Some(list) => list,
+        };
 
-        morphemes
-            .collect_results(&mut self.tokenizer)
-            .map_err(|e| {
-                PyException::new_err(format!("Error while tokenization: {}", e.to_string()))
-            })?;
+        let mut borrow = out_list.try_borrow_mut();
+        let morphemes = match borrow {
+            Ok(ref mut ms) => ms.internal_mut(py),
+            Err(_) => return errors::wrap(Err("out was used twice at the same time")),
+        };
 
-        let wrapper = PyMorphemeListWrapper::from(morphemes);
+        errors::wrap_ctx(
+            morphemes.collect_results(tokenizer.deref_mut()),
+            "Error during tokenization",
+        )?;
 
-        Ok(wrapper)
+        Ok(out_list)
+    }
+
+    /// SplitMode of the tokenizer.
+    #[getter]
+    fn mode(&self) -> PySplitMode {
+        self.tokenizer.mode().into()
     }
 }

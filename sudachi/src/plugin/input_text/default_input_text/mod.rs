@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Works Applications Co., Ltd.
+ * Copyright (c) 2021-2024 Works Applications Co., Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,12 +19,14 @@ use std::fs;
 use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
 
-use aho_corasick::{AhoCorasick, AhoCorasickBuilder, MatchKind};
+use aho_corasick::{
+    AhoCorasick, AhoCorasickBuilder, AhoCorasickKind, Anchored, MatchKind, StartKind,
+};
 use serde::Deserialize;
 use serde_json::Value;
 use unicode_normalization::{is_nfkc_quick, IsNormalized, UnicodeNormalization};
 
-use crate::config::Config;
+use crate::config::{Config, ConfigError};
 use crate::dic::grammar::Grammar;
 use crate::hash::RoMu;
 use crate::input_text::{InputBuffer, InputEditor};
@@ -35,6 +37,7 @@ use crate::prelude::*;
 mod tests;
 
 const DEFAULT_REWRITE_DEF_FILE: &str = "rewrite.def";
+const DEFAULT_REWRITE_DEF_BYTES: &[u8] = include_bytes!("../../../../../resources/rewrite.def");
 
 /// Provides basic normalization of the input text
 #[derive(Default)]
@@ -45,10 +48,8 @@ pub struct DefaultInputTextPlugin {
     key_lengths: HashMap<char, usize>,
     /// Replacement mapping
     replace_char_map: HashMap<String, String>,
-    /// Checks whether the full string contains symbols to normalize
-    full_checker: Option<AhoCorasick>,
-    /// Checks the same as previous, but checks only prefix
-    anchored_checker: Option<AhoCorasick>,
+    /// Checks whether the string contains symbols to normalize
+    checker: Option<AhoCorasick>,
     replacements: Vec<String>,
 }
 
@@ -77,7 +78,7 @@ impl DefaultInputTextPlugin {
         for (i, line) in reader.lines().enumerate() {
             let line = line?;
             let line = line.trim();
-            if line.is_empty() || line.chars().next().unwrap() == '#' {
+            if line.is_empty() || line.starts_with('#') {
                 continue;
             }
             let cols: Vec<_> = line.split_whitespace().collect();
@@ -103,7 +104,7 @@ impl DefaultInputTextPlugin {
                 }
                 let first_char = cols[0].chars().next().unwrap();
                 let n_char = cols[0].chars().count();
-                if key_lengths.get(&first_char).map(|v| *v).unwrap_or(0) < n_char {
+                if key_lengths.get(&first_char).copied().unwrap_or(0) < n_char {
                     key_lengths.insert(first_char, n_char);
                 }
                 replace_char_map.insert(cols[0].to_string(), cols[1].to_string());
@@ -124,19 +125,15 @@ impl DefaultInputTextPlugin {
             values.push(v.clone());
         }
 
-        self.full_checker = Some(
+        self.checker = Some(
             AhoCorasickBuilder::new()
-                .dfa(true)
+                .kind(Some(AhoCorasickKind::DFA))
                 .match_kind(MatchKind::LeftmostLongest)
-                .build(keys.clone()),
-        );
-
-        self.anchored_checker = Some(
-            AhoCorasickBuilder::new()
-                .dfa(true)
-                .match_kind(MatchKind::LeftmostLongest)
-                .anchored(true)
-                .build(keys),
+                .start_kind(StartKind::Both)
+                .build(keys.clone())
+                .map_err(|e| {
+                    ConfigError::InvalidFormat(format!("failed to parse rewrite.def: {e:?}"))
+                })?,
         );
 
         self.replacements = values;
@@ -160,10 +157,12 @@ impl DefaultInputTextPlugin {
         mut replacer: InputEditor<'a>,
     ) -> SudachiResult<InputEditor<'a>> {
         let cur = buffer.current();
-        let checker = self.full_checker.as_ref().unwrap();
+        let checker = self.checker.as_ref().unwrap();
 
-        for m in checker.find_iter(cur) {
-            let replacement = self.replacements.get(m.pattern()).unwrap();
+        let ac_input = aho_corasick::Input::new(cur).anchored(Anchored::No);
+
+        for m in checker.find_iter(ac_input) {
+            let replacement = self.replacements[m.pattern()].as_str();
             replacer.replace_ref(m.start()..m.end(), replacement);
         }
 
@@ -178,16 +177,21 @@ impl DefaultInputTextPlugin {
         mut replacer: InputEditor<'a>,
     ) -> SudachiResult<InputEditor<'a>> {
         let cur = buffer.current();
-        let checker = self.anchored_checker.as_ref().unwrap();
+        let checker = self.checker.as_ref().unwrap();
         let mut min_offset = 0;
+
+        let mut ac_input = aho_corasick::Input::new(cur)
+            .anchored(Anchored::Yes)
+            .earliest(true);
 
         for (offset, ch) in cur.char_indices() {
             if offset < min_offset {
                 continue;
             }
+            ac_input.set_start(offset);
             // 1. replacement as defined by char.def
-            if let Some(m) = checker.earliest_find(&cur[offset..]) {
-                let range = offset..offset + m.end();
+            if let Some(m) = checker.find(ac_input.clone()) {
+                let range = m.range();
                 let replacement = self.replacements[m.pattern()].as_str();
                 min_offset = range.end;
                 replacer.replace_ref(range, replacement);
@@ -196,11 +200,8 @@ impl DefaultInputTextPlugin {
 
             // 2. handle normalization
             let need_lowercase = ch.is_uppercase();
-            let need_nkfc = !self.should_ignore(ch)
-                && match is_nfkc_quick(std::iter::once(ch)) {
-                    IsNormalized::Yes => false,
-                    _ => true,
-                };
+            let need_nkfc =
+                !self.should_ignore(ch) && is_nfkc_quick(std::iter::once(ch)) != IsNormalized::Yes;
 
             // iterator types are incompatible, so calls can't be moved outside branches
             match (need_lowercase, need_nkfc) {
@@ -234,14 +235,10 @@ impl DefaultInputTextPlugin {
         len: usize,
         ch: char,
     ) {
-        match data.next() {
-            Some(ch2) => {
-                if ch2 == ch {
-                    return;
-                }
+        if let Some(ch2) = data.next() {
+            if ch2 != ch {
                 replacer.replace_char_iter(start..start + len, ch2, data)
             }
-            None => return,
         }
     }
 }
@@ -258,11 +255,16 @@ impl InputTextPlugin for DefaultInputTextPlugin {
         let rewrite_file_path = config.complete_path(
             settings
                 .rewriteDef
-                .unwrap_or(PathBuf::from(DEFAULT_REWRITE_DEF_FILE)),
+                .unwrap_or_else(|| DEFAULT_REWRITE_DEF_FILE.into()),
         );
 
-        let reader = BufReader::new(fs::File::open(&rewrite_file_path)?);
-        self.read_rewrite_lists(reader)?;
+        if rewrite_file_path.is_ok() {
+            let reader = BufReader::new(fs::File::open(rewrite_file_path?)?);
+            self.read_rewrite_lists(reader)?;
+        } else {
+            let reader = BufReader::new(DEFAULT_REWRITE_DEF_BYTES);
+            self.read_rewrite_lists(reader)?;
+        }
 
         Ok(())
     }
@@ -277,10 +279,7 @@ impl InputTextPlugin for DefaultInputTextPlugin {
         edit: InputEditor<'a>,
     ) -> SudachiResult<InputEditor<'a>> {
         let chars = buffer.current_chars();
-        let need_nkfc = match is_nfkc_quick(chars.iter().cloned()) {
-            IsNormalized::Yes => false,
-            _ => true,
-        };
+        let need_nkfc = is_nfkc_quick(chars.iter().cloned()) != IsNormalized::Yes;
 
         let need_lowercase = chars.iter().any(|c| c.is_uppercase());
 

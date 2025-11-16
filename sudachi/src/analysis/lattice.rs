@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2021 Works Applications Co., Ltd.
+ *  Copyright (c) 2021-2024 Works Applications Co., Ltd.
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ use crate::analysis::node::{LatticeNode, PathCost, RightId};
 use crate::dic::connect::ConnectionMatrix;
 use crate::dic::grammar::Grammar;
 use crate::dic::lexicon_set::LexiconSet;
+use crate::dic::subset::InfoSubset;
 use crate::dic::word_id::WordId;
 use crate::error::SudachiResult;
 use crate::input_text::InputBuffer;
@@ -69,24 +70,13 @@ impl VNode {
 /// the size of vectors never shrink.
 /// You must use the size parameter to check the current size and never
 /// access vectors after the end.
+#[derive(Default)]
 pub struct Lattice {
     ends: Vec<Vec<VNode>>,
     ends_full: Vec<Vec<Node>>,
     indices: Vec<Vec<NodeIdx>>,
     eos: Option<(NodeIdx, i32)>,
     size: usize,
-}
-
-impl Default for Lattice {
-    fn default() -> Self {
-        Lattice {
-            ends: Vec::new(),
-            ends_full: Vec::new(),
-            indices: Vec::new(),
-            eos: None,
-            size: 0,
-        }
-    }
 }
 
 impl Lattice {
@@ -239,10 +229,7 @@ impl Lattice {
         let mut dump_idx = 0;
 
         for boundary in (0..self.indices.len()).rev() {
-            let nodes = &self.ends_full[boundary];
-
-            for node_idx in 0..nodes.len() {
-                let r_node = &nodes[node_idx];
+            for r_node in &self.ends_full[boundary] {
                 let (surface, pos) = if r_node.is_special_node() {
                     ("(null)", PosData::Bos)
                 } else if r_node.is_oov() {
@@ -252,16 +239,17 @@ impl Lattice {
                         PosData::Borrow(&grammar.pos_list[pos_id]),
                     )
                 } else {
-                    let winfo = lexicon.get_word_info(r_node.word_id())?;
+                    let winfo =
+                        lexicon.get_word_info_subset(r_node.word_id(), InfoSubset::POS_ID)?;
                     (
                         input.orig_slice_c(r_node.begin()..r_node.end()),
-                        PosData::Borrow(&grammar.pos_list[winfo.pos_id as usize]),
+                        PosData::Borrow(&grammar.pos_list[winfo.pos_id() as usize]),
                     )
                 };
 
                 write!(
                     out,
-                    "{}: {} {} {}({}) {} {} {} {}:",
+                    "{}: {} {} {}{} {} {} {} {}:",
                     dump_idx,
                     r_node.begin(),
                     r_node.end(),
@@ -280,7 +268,7 @@ impl Lattice {
                     write!(out, " {}", connect_cost)?;
                 }
 
-                write!(out, "\n")?;
+                writeln!(out)?;
 
                 dump_idx += 1;
             }

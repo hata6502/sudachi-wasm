@@ -67,12 +67,20 @@ pub(crate) struct Plugins {
 }
 
 impl Plugins {
-    pub(crate) fn load(cfg: &Config, grammar: &Grammar) -> SudachiResult<Plugins> {
+    pub(crate) fn load<'a, 'b>(
+        cfg: &'a Config,
+        grammar: &'a mut Grammar<'b>,
+    ) -> SudachiResult<Plugins>
+    where
+        'b: 'a,
+    {
         let plugins = Plugins {
-            connect_cost: load_plugins_of(cfg, grammar)?,
-            input_text: load_plugins_of(cfg, grammar)?,
-            oov: load_plugins_of(cfg, grammar)?,
-            path_rewrite: load_plugins_of(cfg, grammar)?,
+            connect_cost: load_plugins_of(cfg, grammar)
+                .map_err(|e| e.with_context("connect_cost"))?,
+            input_text: load_plugins_of(cfg, grammar).map_err(|e| e.with_context("input_text"))?,
+            oov: load_plugins_of(cfg, grammar).map_err(|e| e.with_context("oov"))?,
+            path_rewrite: load_plugins_of(cfg, grammar)
+                .map_err(|e| e.with_context("path_rewrite"))?,
         };
         Ok(plugins)
     }

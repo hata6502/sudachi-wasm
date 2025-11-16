@@ -1,26 +1,29 @@
-# sudachi.rs - 日本語README
+# sudachi.rs - 日本語 README
 
 <p align="center"><img width="100" src="logo.png" alt="sudachi.rs logo"></p>
 
-sudachi.rs は日本語形態素解析器 [Sudachi](https://github.com/WorksApplications/Sudachi) のRust実装です。
+sudachi.rs は日本語形態素解析器 [Sudachi](https://github.com/WorksApplications/Sudachi) の Rust 実装です。
 
-[English README](README.md)
+[English README](README.md)。
 
-## 注意
-
-実装が未完の部分があります。
-
-他の方によるRust実装も参照ください; [Yasu-umi/sudachiclone-rs](https://github.com/Yasu-umi/sudachiclone-rs)
-
+Python 版についてはこちらを参照してください： [SudachiPy Documentation](./python/README.md)。
 
 ## TL;DR
+
+Python 版のインストール：
+
+```bash
+pip install --upgrade 'sudachipy>=0.6.10'
+```
+
+Rust 版のインストール：
 
 ```bash
 $ git clone https://github.com/WorksApplications/sudachi.rs.git
 $ cd ./sudachi.rs
 
 $ cargo build --release
-$ cargo install --path .
+$ cargo install --path sudachi-cli/
 $ ./fetch_dictionary.sh
 
 $ echo "高輪ゲートウェイ駅" | sudachi
@@ -32,7 +35,7 @@ EOS
 
 複数粒度での分割
 
-```
+```sh
 $ echo 選挙管理委員会 | sudachi
 選挙管理委員会  名詞,固有名詞,一般,*,*,*        選挙管理委員会
 EOS
@@ -47,7 +50,7 @@ EOS
 
 正規化表記
 
-```
+```sh
 $ echo 打込む かつ丼 附属 vintage | sudachi
 打込む  動詞,一般,*,*,五段-マ行,終止形-一般     打ち込む
         空白,*,*,*,*,*
@@ -61,7 +64,7 @@ EOS
 
 分かち書き出力
 
-```
+```sh
 $ cat lemon.txt
 えたいの知れない不吉な塊が私の心を始終圧えつけていた。
 焦躁と言おうか、嫌悪と言おうか――酒を飲んだあとに宿酔があるように、酒を毎日飲んでいると宿酔に相当した時期がやって来る。
@@ -73,28 +76,31 @@ $ sudachi --wakati lemon.txt
 それ が 来 た の だ 。 これ は ちょっと いけ なかっ た 。
 ```
 
-
 ## セットアップ
 
-sudachi.rs本体に加え、デフォルトで使用するプラグイン、また辞書が必要になります。※パッケージには辞書が含まれていません。
+sudachi.rs 本体に加え、デフォルトで使用するプラグイン、また辞書が必要になります。※パッケージには辞書が含まれていません。
 
 ### 1. ソースコードの取得
 
-```
-$ git clone https://github.com/WorksApplications/sudachi.rs.git
+```sh
+git clone https://github.com/WorksApplications/sudachi.rs.git
 ```
 
-### 2. Sudachi辞書のダウンロード
+### 2. Sudachi 辞書のダウンロード
 
-[WorksApplications/SudachiDict](https://github.com/WorksApplications/SudachiDict)から辞書のzipファイル（ `small` 、 `core` 、 `full` から一つ選択）し、解凍して、必要であれば中にある `system_*.dic` ファイルをわかりやすい位置に置いてください。
+[WorksApplications/SudachiDict](https://github.com/WorksApplications/SudachiDict)から辞書の zip ファイル（ `small` 、 `core` 、 `full` から一つ選択）し、解凍して、必要であれば中にある `system_*.dic` ファイルをわかりやすい位置に置いてください。
 デフォルトの設定ファイルでは、辞書ファイルが `resources/system.dic` に存在していると指定しています（ファイル名が `system.dic` に変わっていることに注意）。
 
 #### ダウンロードスクリプト
 
 上記のように手動で設置する以外に、レポジトリにあるスクリプトを使って自動的に辞書をダウンロードし `resources/system.dic` として設置することもできます。
 
-```
-$ ./fetch_dictionary.sh
+```sh
+# fetch latest core dictionary
+./fetch_dictionary.sh
+
+# fetch dictionary of specified version and type
+./fetch_dictionary.sh 20241021 small
 ```
 
 ### 3. ビルド
@@ -103,8 +109,8 @@ $ ./fetch_dictionary.sh
 
 `--all` フラグを使って付属のプラグインもまとめてビルドすることができます。
 
-```
-$ cargo build --release
+```sh
+cargo build --release
 ```
 
 #### ビルド（辞書バイナリの埋め込み）
@@ -118,7 +124,8 @@ $ cargo build --release
 ビルド時、埋め込む辞書へのパスを `SUDACHI_DICT_PATH` 環境変数によって指定する必要があります。
 このパスは絶対パスもしくは sudachi.rs ディレクトリからの相対パスで指定してください。
 
-Unix-likeシステムでの例:
+Unix-like システムでの例:
+
 ```sh
 # resources/system.dic への辞書ダウンロード
 $ ./fetch_dictionary.sh
@@ -132,10 +139,11 @@ $ env SUDACHI_DICT_PATH=resources/system.dic cargo build --release --features ba
 $ env SUDACHI_DICT_PATH=/path/to/my-sudachi.dic cargo build --release --features bake_dictionary
 ```
 
-
 ### 4. インストール
-```
-sudachi.rs/ $ cargo install --path sudachi-cli/
+
+```sh
+$ cd sudachi.rs/
+$ cargo install --path sudachi-cli/
 
 $ which sudachi
 /Users/<USER>/.cargo/bin/sudachi
@@ -146,33 +154,51 @@ A Japanese tokenizer
 ...
 ```
 
-
 ## 利用方法
 
 ```bash
 $ sudachi -h
-sudachi 0.6.0
 A Japanese tokenizer
 
-USAGE:
-    sudachi [FLAGS] [OPTIONS] [file]
+Usage: sudachi [OPTIONS] [FILE] [COMMAND]
 
-FLAGS:
-    -d, --debug      Debug mode: Print the debug information
-    -h, --help       Prints help information
-    -a, --all        Prints all fields
-    -V, --version    Prints version information
-    -w, --wakati     Outputs only surface form
+Commands:
+  build
+          Builds system dictionary
+  ubuild
+          Builds user dictionary
+  dump
 
-OPTIONS:
-    -r, --config-file <config-file>      Path to the setting file in JSON format
-    -l, --dict <dictionary-path>         Path to sudachi dictionary. If None, it refer config and then baked dictionary
-    -m, --mode <mode>                    Split unit: "A" (short), "B" (middle), or "C" (Named Entity) [default: C]
-    -o, --output <output-file>
-    -p, --resource_dir <resource-dir>    Path to the root directory of resources
+  help
+          Print this message or the help of the given subcommand(s)
 
-ARGS:
-    <file>    Input text file: If not present, read from STDIN
+Arguments:
+  [FILE]
+          Input text file: If not present, read from STDIN
+
+Options:
+  -r, --config-file <CONFIG_FILE>
+          Path to the setting file in JSON format
+  -p, --resource_dir <RESOURCE_DIR>
+          Path to the root directory of resources
+  -m, --mode <MODE>
+          Split unit: "A" (short), "B" (middle), or "C" (Named Entity) [default: C]
+  -o, --output <OUTPUT_FILE>
+          Output text file: If not present, use stdout
+  -a, --all
+          Prints all fields
+  -w, --wakati
+          Outputs only surface form
+  -d, --debug
+          Debug mode: Print the debug information
+  -l, --dict <DICTIONARY_PATH>
+          Path to sudachi dictionary. If None, it refer config and then baked dictionary
+      --split-sentences <SPLIT_SENTENCES>
+          How to split sentences [default: yes]
+  -h, --help
+          Print help (see more with '--help')
+  -V, --version
+          Print version
 ```
 
 ### 出力
@@ -187,12 +213,12 @@ ARGS:
 
 - 辞書形
 - 読み
-- 辞書ID
-    - 0 システム辞書
-    - 1 ユーザー辞書
-    - -1 未知語（辞書に含まれない単語）
-- 同義語グループID
-- "OOV" 未知語（辞書に含まれない単語）の場合のみ
+- 辞書 ID
+  - `0` システム辞書
+  - `1` ユーザー辞書
+  - `-1` 未知語（辞書に含まれない単語）
+- 同義語グループ ID
+- `(OOV)` 未知語（辞書に含まれない単語）の場合のみ
 
 ```bash
 $ echo "外国人参政権" | sudachi -a
@@ -214,13 +240,11 @@ $ echo "外国人参政権" | sudachi -m A -w
 外国 人 参政 権
 ```
 
-
 ## ToDo
 
 - [x] 未知語処理
-- [ ] 簡単な辞書ファイルのインストール、管理（[SudachiPyでの方式を参考に](https://github.com/WorksApplications/SudachiPy/issues/73)）
+- [ ] 簡単な辞書ファイルのインストール、管理（[SudachiPy での方式を参考に](https://github.com/WorksApplications/SudachiPy/issues/73)）
 - [ ] crates.io への登録
-
 
 ## リファレンス
 
@@ -231,12 +255,12 @@ $ echo "外国人参政権" | sudachi -m A -w
 - [WorksApplications/SudachiPy](https://github.com/WorksApplications/SudachiPy)
 - [msnoigrs/gosudachi](https://github.com/msnoigrs/gosudachi)
 
-### Rustによる形態素解析器の実装
+### Rust による形態素解析器の実装
 
 - [agatan/yoin: A Japanese Morphological Analyzer written in pure Rust](https://github.com/agatan/yoin)
 - [wareya/notmecab-rs: notmecab-rs is a very basic mecab clone, designed only to do parsing, not training.](https://github.com/wareya/notmecab-rs)
 
 ### ロゴ
 
-- [Sudachiのロゴ](https://github.com/WorksApplications/Sudachi/blob/develop/docs/Sudachi.png)
+- [Sudachi のロゴ](https://github.com/WorksApplications/Sudachi/blob/develop/docs/Sudachi.png)
 - カニのイラスト: [Pixabay](https://pixabay.com/ja/vectors/%E5%8B%95%E7%89%A9-%E3%82%AB%E3%83%8B-%E7%94%B2%E6%AE%BB%E9%A1%9E-%E6%B5%B7-2029728/)

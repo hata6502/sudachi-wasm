@@ -20,11 +20,11 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
     - name: Download dictionary
-      run: bash fetch_dictionary.sh
+      run: bash fetch_dictionary.sh "20220519" "core"
 
-    - uses: actions/cache@v2
+    - uses: actions/cache@v4
       with:
         path: |
           ~/.cargo/bin/
@@ -47,5 +47,10 @@ jobs:
 
     - name: Check that binary works (A mode)
       run: |
-        target/debug/sudachi .github/data/input.txt -m A -o result-a.txt
+        target/debug/sudachi .github/data/input.txt --mode=A -o result-a.txt
         git diff --color=always --no-index -- result-a.txt .github/data/expected-a.txt
+
+    - name: Check that binary works (A mode / wakati)
+      run: |
+        target/debug/sudachi .github/data/input.txt --mode=A --wakati -o result-wakati-a.txt
+        git diff --color=always --no-index -- result-wakati-a.txt .github/data/expected-wakati-a.txt

@@ -18,10 +18,10 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Download dictionary
-        run: bash fetch_dictionary.sh
+        run: bash fetch_dictionary.sh "20220519" "core"
       - name: Run tests (Debug)
         run: cargo test --verbose
       - name: Run tests (Release)
-        run: cargo test --verbose
+        run: cargo test --release --verbose

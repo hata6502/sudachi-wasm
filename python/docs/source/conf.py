@@ -18,11 +18,11 @@
 # -- Project information -----------------------------------------------------
 
 project = 'SudachiPy'
-copyright = '2021, Works Applications'
+copyright = '2023, Works Applications'
 author = 'Works Applications'
 
 # The full version, including alpha/beta/rc tags
-release = '0.6.0-rc1'
+release = '0.6.11-a1'
 
 
 # -- General configuration ---------------------------------------------------
@@ -55,7 +55,7 @@ html_theme = 'sphinx_rtd_theme'
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ['_static']
+html_static_path = []
 
 
 # -- Extension configuration -------------------------------------------------

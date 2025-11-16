@@ -1,19 +1,23 @@
 [package]
 name = "sudachipy"
-version = "0.6.0-rc1"
-edition = "2018"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
 description = "Python bindings of sudachi.rs, the Japanese Morphological Analyzer"
-homepage = "https://github.com/WorksApplications/sudachi.rs"
-repository = "https://github.com/WorksApplications/sudachi.rs"
-license = "Apache-2.0"
-
+readme = "README.md"
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
 
 [lib]
 name = "sudachipy"
 crate-type = ["cdylib"]
 
 [dependencies]
-pyo3 = { version = "0.14.3", features = ["extension-module"] }
+pyo3 = { version = "0.23", features = ["extension-module"] }
+scopeguard = "1" # Apache 2.0/MIT
+thread_local = "1.1" # Apache 2.0/MIT
 
 [dependencies.sudachi]
 path = "../sudachi"

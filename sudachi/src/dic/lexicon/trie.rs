@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Works Applications Co., Ltd.
+ * Copyright (c) 2021-2024 Works Applications Co., Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,27 +14,26 @@
  * limitations under the License.
  */
 
+use crate::util::cow_array::CowArray;
 use std::iter::FusedIterator;
 
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct TrieEntry {
-    pub word_id: u32,
+    /// Value of Trie, this is not the pointer to WordId, but the offset in WordId table
+    pub value: u32,
+    /// Offset of word end
     pub end: usize,
 }
 
 impl TrieEntry {
     #[inline]
-    pub fn new(id: u32, offset: usize) -> TrieEntry {
-        TrieEntry {
-            word_id: id,
-            end: offset,
-        }
+    pub fn new(value: u32, offset: usize) -> TrieEntry {
+        TrieEntry { value, end: offset }
     }
 }
 
-pub struct Trie {
-    array: Vec<u32>,
-    size: u32, // number of elements
+pub struct Trie<'a> {
+    array: CowArray<'a, u32>,
 }
 
 pub struct TrieEntryIter<'a> {
@@ -87,21 +86,28 @@ impl<'a> Iterator for TrieEntryIter<'a> {
 
 impl FusedIterator for TrieEntryIter<'_> {}
 
-impl Trie {
-    pub fn new(array: Vec<u32>, size: u32) -> Trie {
-        Trie { array, size }
+impl<'a> Trie<'a> {
+    pub fn new(data: &'a [u8], size: usize) -> Trie<'a> {
+        Trie {
+            array: CowArray::from_bytes(data, 0, size),
+        }
+    }
+
+    pub fn new_owned(data: Vec<u32>) -> Trie<'a> {
+        Trie {
+            array: CowArray::from_owned(data),
+        }
     }
 
     pub fn total_size(&self) -> usize {
-        4 * self.size as usize
+        4 * self.array.len()
     }
 
     #[inline]
-    pub fn common_prefix_iterator<'a>(
-        &'a self,
-        input: &'a [u8],
-        offset: usize,
-    ) -> TrieEntryIter<'a> {
+    pub fn common_prefix_iterator<'b>(&'a self, input: &'b [u8], offset: usize) -> TrieEntryIter<'b>
+    where
+        'a: 'b,
+    {
         let unit: usize = self.get(0) as usize;
 
         TrieEntryIter {

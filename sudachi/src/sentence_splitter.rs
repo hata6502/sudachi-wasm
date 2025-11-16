@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2021 Works Applications Co., Ltd.
+ *  Copyright (c) 2021-2024 Works Applications Co., Ltd.
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -14,6 +14,7 @@
  *  limitations under the License.
  */
 
+use crate::dic::lexicon_set::LexiconSet;
 use crate::sentence_detector::{NonBreakChecker, SentenceDetector};
 use std::ops::Range;
 
@@ -52,7 +53,13 @@ impl<'s, 'x> Iterator for SentenceIter<'s, 'x> {
 
 pub struct SentenceSplitter<'a> {
     detector: SentenceDetector,
-    checker: Option<&'a NonBreakChecker<'a>>,
+    checker: Option<NonBreakChecker<'a>>,
+}
+
+impl Default for SentenceSplitter<'_> {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl SentenceSplitter<'_> {
@@ -70,7 +77,8 @@ impl SentenceSplitter<'_> {
         }
     }
 
-    pub fn with_checker<'a>(self, checker: &'a NonBreakChecker<'a>) -> SentenceSplitter<'a> {
+    pub fn with_checker<'a>(self, lexicon: &'a LexiconSet<'a>) -> SentenceSplitter<'a> {
+        let checker = NonBreakChecker::new(lexicon);
         SentenceSplitter {
             detector: self.detector,
             checker: Some(checker),
@@ -84,7 +92,7 @@ impl SplitSentences for SentenceSplitter<'_> {
             data,
             position: 0,
             splitter: &self.detector,
-            checker: self.checker,
+            checker: self.checker.as_ref(),
         }
     }
 }

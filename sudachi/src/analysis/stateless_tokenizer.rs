@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2021 Works Applications Co., Ltd.
+ *  Copyright (c) 2021-2024 Works Applications Co., Ltd.
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -20,12 +20,14 @@ use std::ops::Deref;
 
 use crate::dic::grammar::Grammar;
 use crate::dic::lexicon_set::LexiconSet;
+use crate::dic::subset::InfoSubset;
 use crate::error::SudachiResult;
+use crate::input_text::InputBuffer;
 use crate::plugin::input_text::InputTextPlugin;
 use crate::plugin::oov::OovProviderPlugin;
 use crate::plugin::path_rewrite::PathRewritePlugin;
 
-use super::morpheme::MorphemeList;
+use super::mlist::MorphemeList;
 use super::{Mode, Tokenize};
 
 /// Provides access to dictionary data
@@ -110,6 +112,8 @@ pub(super) fn split_path<T: DictionaryAccess + ?Sized>(
     dict: &T,
     path: Vec<ResultNode>,
     mode: Mode,
+    subset: InfoSubset,
+    input: &InputBuffer,
 ) -> SudachiResult<Vec<ResultNode>> {
     if mode == Mode::C {
         return Ok(path);
@@ -121,7 +125,7 @@ pub(super) fn split_path<T: DictionaryAccess + ?Sized>(
         if split_len <= 1 {
             new_path.push(node);
         } else {
-            new_path.extend(node.split(mode, dict.lexicon()));
+            new_path.extend(node.split(mode, dict.lexicon(), subset, input));
         }
     }
 
@@ -129,7 +133,7 @@ pub(super) fn split_path<T: DictionaryAccess + ?Sized>(
 }
 
 pub(super) fn dump_path(path: &Vec<ResultNode>) {
-    for (i, node) in (&path).iter().enumerate() {
+    for (i, node) in path.iter().enumerate() {
         println!("{}: {}", i, node);
     }
 }

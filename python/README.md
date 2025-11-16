@@ -1,20 +1,22 @@
 # SudachiPy
+
 [![PyPi version](https://img.shields.io/pypi/v/sudachipy.svg)](https://pypi.python.org/pypi/sudachipy/)
-[![](https://img.shields.io/badge/python-3.6+-blue.svg)](https://www.python.org/downloads/release/python-360/)
+[![](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/release/python-390/)
+[Documentation](https://worksapplications.github.io/sudachi.rs/python)
 
 SudachiPy is a Python version of [Sudachi](https://github.com/WorksApplications/Sudachi), a Japanese morphological analyzer.
 
-Buindings over the [Rust implementation](https://github.com/WorksApplications/sudachi.rs).
+This is not a pure Python implementation, but bindings for the
+[Sudachi.rs](https://github.com/WorksApplications/sudachi.rs).
 
+## Binary wheels
 
-## Note about installing version 0.6.0rc1
+We provide binary builds for macOS (10.14+), Windows and Linux x86_64/aarch64 architecture.
+x86 32-bit architecture is not supported and is not tested.
+MacOS source builds seem to work on ARM-based (Aarch64) Macs,
+but this architecture also is not tested and require installing Rust toolchain and Cargo.
 
-- You need to explicitly specify the version to install: `pip install sudachipy==0.6.0rc1`.
-- You can safely ignore the error about version incompatibility from `sudachidict_*`.
-- Installing `sudachidict_*` will overwrites this version.
-  - Install a dictionary first, or re-install this module.
-- Please also check [CHANGELOG.md](./CHANGELOG.md).
-
+More information [here](https://worksapplications.github.io/sudachi.rs/python/topics/wheels.html).
 
 ## TL;DR
 
@@ -52,7 +54,6 @@ morphemes = tokenizer.tokenize("国会議事堂前駅", SplitMode.A)
 print([m.surface() for m in morphemes])  # ['国会', '議事', '堂', '前', '駅']
 ```
 
-
 ## Setup
 
 You need SudachiPy and a dictionary.
@@ -60,19 +61,18 @@ You need SudachiPy and a dictionary.
 ### Step 1. Install SudachiPy
 
 ```bash
-$ pip install sudachipy
+pip install sudachipy
 ```
 
 ### Step 2. Get a Dictionary
 
-You can get dictionary as a Python package. It make take a while to download the dictionary file (around 70MB for the `core` edition).
+You can get dictionary as a Python package. It may take a while to download the dictionary file (around 70MB for the `core` edition).
 
 ```bash
-$ pip install sudachidict_core
+pip install sudachidict_core
 ```
 
 Alternatively, you can choose other dictionary editions. See [this section](#dictionary-edition) for the detail.
-
 
 ## Usage: As a command
 
@@ -112,8 +112,7 @@ optional arguments:
   -v, --version  print sudachipy version
 ```
 
-__Note: The Debug option (`-d`) is disabled in version 0.6.0rc1.__
-
+**Note: The Debug option (`-d`) is disabled in version 0.6.\***
 
 ### Output
 
@@ -147,13 +146,11 @@ quei	名詞,普通名詞,一般,*,*,*	quei	quei		-1	[]	(OOV)
 EOS
 ```
 
-
 ## Usage: As a Python package
 
 ### API
 
 See [API reference page](https://worksapplications.github.io/sudachi.rs/python/).
-
 
 ### Example
 
@@ -201,18 +198,17 @@ tokenizer_obj.tokenize("シュミレーション", mode)[0].normalized_form()
 
 (With `20210802` `core` dictionary. The results may change when you use other versions)
 
-
 ## Dictionary Edition
 
 There are three editions of Sudachi Dictionary, namely, `small`, `core`, and `full`. See [WorksApplications/SudachiDict](https://github.com/WorksApplications/SudachiDict) for the detail.
 
-SudachiPy uses `sudachidict_core` by default. 
+SudachiPy uses `sudachidict_core` by default.
 
-Dictionaries are installed as Python packages `sudachidict_small`, `sudachidict_core`, and `sudachidict_full`.
+Dictionaries can be installed as Python packages `sudachidict_small`, `sudachidict_core`, and `sudachidict_full`.
 
-* [SudachiDict-small · PyPI](https://pypi.org/project/SudachiDict-small/)
-* [SudachiDict-core · PyPI](https://pypi.org/project/SudachiDict-core/)
-* [SudachiDict-full · PyPI](https://pypi.org/project/SudachiDict-full/)
+- [SudachiDict-small · PyPI](https://pypi.org/project/SudachiDict-small/)
+- [SudachiDict-core · PyPI](https://pypi.org/project/SudachiDict-core/)
+- [SudachiDict-full · PyPI](https://pypi.org/project/SudachiDict-full/)
 
 The dictionary files are not in the package itself, but it is downloaded upon installation.
 
@@ -230,42 +226,40 @@ $ pip install sudachidict_full
 $ echo "外国人参政権" | sudachipy -s full
 ```
 
-
 ### Dictionary option: Python package
 
-You can specify the dictionary with the `Dicionary()` argument; `config_path` or `dict_type`.
+You can specify the dictionary with the `Dicionary()` argument; `config` or `dict`.
 
 ```python
-class Dictionary(config_path=None, resource_dir=None, dict_type=None)
+class Dictionary(config=None, resource_dir=None, dict=None)
 ```
 
-1. `config_path`
-    * You can specify the file path to the setting file with `config_path` (See [Dictionary in The Setting File](#Dictionary in The Setting File) for the detail).
-    * If the dictionary file is specified in the setting file as `systemDict`, SudachiPy will use the dictionary.
-2. `dict_type`
-    * You can also specify the dictionary type with `dict_type`.
-    * The available arguments are `small`, `core`, or `full`.
-    * If different dictionaries are specified with `config_path` and `dict_type`, **a dictionary defined `dict_type` overrides** those defined in the config path.
+1. `config`
+   - You can specify the file path to the setting file with `config` (See [Dictionary in The Setting File](#Dictionary in The Setting File) for the detail).
+   - If the dictionary file is specified in the setting file as `systemDict`, SudachiPy will use the dictionary.
+2. `dict`
+   - You can also specify the dictionary type with `dict`.
+   - The available arguments are `small`, `core`, `full`, or a path to the dictionary file.
+   - If different dictionaries are specified with `config` and `dict`, **a dictionary defined `dict` overrides** those defined in the config.
 
 ```python
 from sudachipy import Dictionary
 
 # default: sudachidict_core
-tokenizer_obj = Dictionary().create()  
+tokenizer_obj = Dictionary().create()
 
 # The dictionary given by the `systemDict` key in the config file (/path/to/sudachi.json) will be used
-tokenizer_obj = Dictionary(config_path="/path/to/sudachi.json").create()  
+tokenizer_obj = Dictionary(config="/path/to/sudachi.json").create()
 
-# The dictionary specified by `dict_type` will be set.
-tokenizer_obj = Dictionary(dict_type="core").create()  # sudachidict_core (same as default)
-tokenizer_obj = Dictionary(dict_type="small").create()  # sudachidict_small
-tokenizer_obj = Dictionary(dict_type="full").create()  # sudachidict_full
+# The dictionary specified by `dict` will be used.
+tokenizer_obj = Dictionary(dict="core").create()  # sudachidict_core (same as default)
+tokenizer_obj = Dictionary(dict="small").create()  # sudachidict_small
+tokenizer_obj = Dictionary(dict="full").create()  # sudachidict_full
 
-# The dictionary specified by `dict_type` overrides those defined in the config path.
-# In the following code, `sudachidict_full` will be used regardless of a dictionary defined in the config file. 
-tokenizer_obj = Dictionary(config_path="/path/to/sudachi.json", dict_type="full").create()  
+# The dictionary specified by `dict` overrides those defined in the config.
+# In the following code, `sudachidict_full` will be used regardless of a dictionary defined in the config file.
+tokenizer_obj = Dictionary(config="/path/to/sudachi.json", dict="full").create()
 ```
-
 
 ### Dictionary in The Setting File
 
@@ -278,16 +272,15 @@ Alternatively, if the dictionary file is specified in the setting file, `sudachi
 }
 ```
 
-The default setting file is [sudachi.json](https://github.com/WorksApplications/sudachi.rs/blob/develop/python/py_src/sudachi/resources/sudachi.json). You can specify your `sudachi.json` with the `-r` option.
+The default setting file is [sudachi.json](https://github.com/WorksApplications/sudachi.rs/blob/develop/python/py_src/sudachipy/resources/sudachi.json). You can specify your `sudachi.json` with the `-r` option.
 
 ```bash
 $ sudachipy -r path/to/sudachi.json
-``` 
-
+```
 
 ## User Dictionary
 
-To use a user dictionary, `user.dic`, place [sudachi.json](https://github.com/WorksApplications/sudachi.rs/blob/develop/python/py_src/sudachi/resources/sudachi.json) to anywhere you like, and add `userDict` value with the relative path from `sudachi.json` to your `user.dic`.
+To use a user dictionary, `user.dic`, place [sudachi.json](https://github.com/WorksApplications/sudachi.rs/blob/develop/python/py_src/sudachipy/resources/sudachi.json) to anywhere you like, and add `userDict` value with the relative path from `sudachi.json` to your `user.dic`.
 
 ```js
 {
@@ -300,36 +293,31 @@ Then specify your `sudachi.json` with the `-r` option.
 
 ```bash
 $ sudachipy -r path/to/sudachi.json
-``` 
-
+```
 
 You can build a user dictionary with the subcommand `ubuild`.
 
-__Note: in v0.6.0rc1, `ubuild` subcommand is not yet implemented. Please downgrade to sudachipy<0.6.__
-
-
 ```bash
 $ sudachipy ubuild -h
-usage: sudachipy ubuild [-h] [-d string] [-o file] [-s file] file [file ...]
+usage: sudachipy ubuild [-h] [-o file] [-d string] -s file file [file ...]
 
 Build User Dictionary
 
 positional arguments:
   file        source files with CSV format (one or more)
 
-optional arguments:
+options:
   -h, --help  show this help message and exit
-  -d string   description comment to be embedded on dictionary
   -o file     output file (default: user.dic)
-  -s file     system dictionary path (default: system core dictionary path)
+  -d string   description comment to be embedded on dictionary
+
+required named arguments:
+  -s file     system dictionary path
 ```
 
 About the dictionary file format, please refer to [this document](https://github.com/WorksApplications/Sudachi/blob/develop/docs/user_dict.md) (written in Japanese, English version is not available yet).
 
-
 ## Customized System Dictionary
-
-__Note: in v0.6.0rc1, `build` subcommand is not yet implemented. Please downgrade to sudachipy<0.6.__
 
 ```bash
 $ sudachipy build -h
@@ -349,7 +337,7 @@ required named arguments:
   -m file     connection matrix file with MeCab's matrix.def format
 ```
 
-To use your customized `system.dic`, place [sudachi.json](https://github.com/WorksApplications/sudachi.rs/blob/develop/python/py_src/sudachi/resources/sudachi.json) to anywhere you like, and overwrite `systemDict` value with the relative path from `sudachi.json` to your `system.dic`.
+To use your customized `system.dic`, place [sudachi.json](https://github.com/WorksApplications/sudachi.rs/blob/develop/python/py_src/sudachipy/resources/sudachi.json) to anywhere you like, and overwrite `systemDict` value with the relative path from `sudachi.json` to your `system.dic`.
 
 ```js
 {
@@ -362,8 +350,7 @@ Then specify your `sudachi.json` with the `-r` option.
 
 ```bash
 $ sudachipy -r path/to/sudachi.json
-``` 
-
+```
 
 ## For Developers
 
@@ -373,24 +360,20 @@ $ sudachipy -r path/to/sudachi.json
 
 1. Install python module `setuptools` and `setuptools-rust`.
 2. Run `./build-sdist.sh` in `python` dir.
-    - source distribution will be generated under `python/dist/` dir.
+   - source distribution will be generated under `python/dist/` dir.
 3. Install it via pip: `pip install ./python/dist/SudachiPy-[version].tar.gz`
-
 
 #### Install develop build
 
 1. Install python module `setuptools` and `setuptools-rust`.
-2. Run `python3 setup.py develop`.
-    - `develop` will create a debug build, while `install` will create a release build.
+2. Run `python3 -m pip install -e .` to install sudachipy (editable install).
 3. Now you can import the module by `import sudachipy`.
 
 ref: [setuptools-rust](https://github.com/PyO3/setuptools-rust)
 
-
 ### Test
 
 Run `build_and_test.sh` to run the tests.
-
 
 ## Contact
 

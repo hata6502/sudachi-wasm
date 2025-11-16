@@ -1,6 +1,6 @@
 #!/bin/bash
 
-cd `dirname $0`
+cd "$(dirname 0)" || ( echo "failed to cd" && exit 1 )
 
 VENV_NAME=".env"
 
@@ -12,8 +12,8 @@ fi
 
 source $VENV_NAME/bin/activate
 
-# build
-python setup.py develop
+# build with tests extras
+pip install -vvv -e '.[tests]'
 
 # run test
 python -m unittest

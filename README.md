@@ -40,6 +40,14 @@ Please use the following mechanisms to delivery it.
 
 ### Node.js
 
+Install Python version
+
+```bash
+pip install --upgrade 'sudachipy>=0.6.10'
+```
+
+or Rust version
+
 ```bash
 npm i sudachi
 ```

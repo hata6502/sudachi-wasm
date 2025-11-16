@@ -65,8 +65,8 @@ class TestTokenizer(unittest.TestCase):
     def test_morpheme_pos(self):
         m = self.tokenizer_obj.tokenize('京都')[0]
         self.assertEqual(m.part_of_speech_id(), 3)
-        self.assertEqual(m.part_of_speech(), [
-                         '名詞', '固有名詞', '地名', '一般', '*', '*'])
+        self.assertEqual(m.part_of_speech(), (
+                         '名詞', '固有名詞', '地名', '一般', '*', '*'))
 
     def test_morpheme_forms(self):
         m = self.tokenizer_obj.tokenize('東京')[0]
@@ -114,6 +114,49 @@ class TestTokenizer(unittest.TestCase):
 
         m = self.tokenizer_obj.tokenize('東京府')[0]
         self.assertEqual(m.synonym_group_ids(), [1, 3])
+
+    def test_normalize_half_full(self):
+        m = self.tokenizer_obj.tokenize('特Ａ東京')
+        self.assertEqual(len(m), 2)
+
+        self.assertEqual(m[0].surface(), "特Ａ")
+        self.assertEqual(m[0].begin(), 0)
+        self.assertEqual(m[0].end(), 2)
+
+    def test_normalize_katakana_half_full(self):
+        m = self.tokenizer_obj.tokenize('ｶﾞ5')
+        self.assertEqual(len(m), 2)
+
+        self.assertEqual(m[0].surface(), "ｶﾞ")
+        self.assertEqual(m[0].end(), 2)
+        self.assertEqual(m[1].begin(), 2)
+        self.assertEqual(len(m[0]), 2)
+
+    def test_morpheme_split_out(self):
+        ms = self.tokenizer_obj.tokenize('東京都', SplitMode.C)
+        self.assertEqual(1, ms.size())
+        self.assertEqual(ms[0].surface(), '東京都')
+
+        ms_a = ms[0].split(SplitMode.A, out=None)
+        self.assertEqual(2, ms_a.size())
+        self.assertEqual(ms_a[0].surface(), '東京')
+        self.assertEqual(ms_a[1].surface(), '都')
+
+        ms = self.tokenizer_obj.tokenize("京都東京都京都", SplitMode.C)
+        ms_b = ms[1].split(SplitMode.A, out=ms_a)
+        self.assertEqual(id(ms_a), id(ms_b))
+        self.assertEqual(ms_a[0].surface(), '東京')
+        self.assertEqual(ms_a[1].surface(), '都')
+
+    def test_morpheme_str_repr(self):
+        ms = self.tokenizer_obj.tokenize('東京都', SplitMode.A)
+        self.assertEqual(2, ms.size())
+        self.assertEqual(str(ms), '東京 都')
+        self.assertEqual(repr(ms), '<MorphemeList[\n  <Morpheme(東京, 0:2, (0, 5))>,\n  <Morpheme(都, 2:3, (0, 9))>,\n]>')
+        self.assertEqual(str(ms[0]), '東京')
+        self.assertEqual(str(ms[1]), '都')
+        self.assertEqual(repr(ms[0]), '<Morpheme(東京, 0:2, (0, 5))>')
+        self.assertEqual(repr(ms[1]), '<Morpheme(都, 2:3, (0, 9))>')
 
 
 if __name__ == '__main__':

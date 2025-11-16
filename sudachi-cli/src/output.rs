@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2021 Works Applications Co., Ltd.
+ *  Copyright (c) 2021-2024 Works Applications Co., Ltd.
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -17,13 +17,15 @@
 use std::io::{BufWriter, Write};
 use sudachi::analysis::morpheme::Morpheme;
 use sudachi::analysis::stateless_tokenizer::DictionaryAccess;
+use sudachi::dic::subset::InfoSubset;
 
 use sudachi::prelude::{MorphemeList, SudachiResult};
 
-type Writer = BufWriter<Box<dyn Write>>;
+pub type Writer = BufWriter<Box<dyn Write>>;
 
 pub trait SudachiOutput<T> {
     fn write(&self, writer: &mut Writer, morphemes: &MorphemeList<T>) -> SudachiResult<()>;
+    fn subset(&self) -> InfoSubset;
 }
 
 pub struct Wakachi {
@@ -42,7 +44,7 @@ impl Wakachi {
 
 impl<T: DictionaryAccess> SudachiOutput<T> for Wakachi {
     fn write(&self, writer: &mut Writer, morphemes: &MorphemeList<T>) -> SudachiResult<()> {
-        if morphemes.len() == 0 {
+        if morphemes.is_empty() {
             writer.write_all(b"\n")?;
             return Ok(());
         }
@@ -57,6 +59,10 @@ impl<T: DictionaryAccess> SudachiOutput<T> for Wakachi {
             writer.write_all(trailer.as_bytes())?;
         }
         Ok(())
+    }
+
+    fn subset(&self) -> InfoSubset {
+        InfoSubset::empty()
     }
 }
 
@@ -82,6 +88,18 @@ impl<T: DictionaryAccess> SudachiOutput<T> for Simple {
         writer.write_all(b"EOS\n")?;
         Ok(())
     }
+
+    fn subset(&self) -> InfoSubset {
+        let mut subset = InfoSubset::POS_ID | InfoSubset::NORMALIZED_FORM;
+
+        if self.print_all {
+            subset |= InfoSubset::DIC_FORM_WORD_ID
+                | InfoSubset::READING_FORM
+                | InfoSubset::SYNONYM_GROUP_ID;
+        }
+
+        subset
+    }
 }
 
 #[inline]
@@ -91,7 +109,7 @@ fn write_morpheme_basic<T: DictionaryAccess>(
 ) -> SudachiResult<()> {
     writer.write_all(morpheme.surface().as_bytes())?;
     writer.write_all(b"\t")?;
-    let all_pos = morpheme.part_of_speech()?;
+    let all_pos = morpheme.part_of_speech();
     for (idx, pos) in all_pos.iter().enumerate() {
         writer.write_all(pos.as_bytes())?;
         if idx + 1 != all_pos.len() {

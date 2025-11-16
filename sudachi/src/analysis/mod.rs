@@ -14,14 +14,17 @@
  *  limitations under the License.
  */
 
+use std::fmt::{Display, Formatter};
 use std::str::FromStr;
 
-use morpheme::MorphemeList;
+use mlist::MorphemeList;
 
 use crate::error::SudachiResult;
 
+pub mod created;
 mod inner;
 pub mod lattice;
+pub mod mlist;
 pub mod morpheme;
 pub mod node;
 pub mod stateful_tokenizer;
@@ -74,6 +77,17 @@ impl FromStr for Mode {
             "C" | "c" => Ok(Mode::C),
             _ => Err("Mode must be one of \"A\", \"B\", or \"C\" (in lower or upper case)."),
         }
+    }
+}
+
+impl Display for Mode {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let repr = match self {
+            Mode::A => "A",
+            Mode::B => "B",
+            Mode::C => "C",
+        };
+        f.write_str(repr)
     }
 }
 

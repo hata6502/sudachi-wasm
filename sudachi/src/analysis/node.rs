@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2021 Works Applications Co., Ltd.
+ *  Copyright (c) 2021-2024 Works Applications Co., Ltd.
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -19,9 +19,11 @@ use std::iter::FusedIterator;
 use std::ops::Range;
 
 use crate::analysis::inner::Node;
-use crate::dic::lexicon::word_infos::WordInfo;
+use crate::dic::lexicon::word_infos::{WordInfo, WordInfoData};
 use crate::dic::lexicon_set::LexiconSet;
+use crate::dic::subset::InfoSubset;
 use crate::dic::word_id::WordId;
+use crate::input_text::InputBuffer;
 use crate::prelude::*;
 
 /// Accessor trait for right connection id
@@ -75,7 +77,8 @@ pub trait LatticeNode: RightId {
 
 #[derive(Clone)]
 /// Full lattice node, as the result of analysis.
-/// All indices (including inner) are in the original sentence space.
+/// All indices (including inner) are in the modified sentence space
+/// Indices are converted to original sentence space when user request them.
 pub struct ResultNode {
     inner: Node,
     total_cost: i32,
@@ -168,17 +171,23 @@ impl ResultNode {
     /// Returns number of splits in a specified mode
     pub fn num_splits(&self, mode: Mode) -> usize {
         match mode {
-            Mode::A => self.word_info.a_unit_split.len(),
-            Mode::B => self.word_info.b_unit_split.len(),
+            Mode::A => self.word_info.a_unit_split().len(),
+            Mode::B => self.word_info.b_unit_split().len(),
             Mode::C => 0,
         }
     }
 
     /// Split the node with a specified mode using the dictionary data
-    pub fn split<'a>(&'a self, mode: Mode, lexicon: &'a LexiconSet<'a>) -> NodeSplitIterator<'a> {
+    pub fn split<'a>(
+        &'a self,
+        mode: Mode,
+        lexicon: &'a LexiconSet<'a>,
+        subset: InfoSubset,
+        text: &'a InputBuffer,
+    ) -> NodeSplitIterator<'a> {
         let splits: &[WordId] = match mode {
-            Mode::A => &self.word_info.a_unit_split,
-            Mode::B => &self.word_info.b_unit_split,
+            Mode::A => self.word_info.a_unit_split(),
+            Mode::B => self.word_info.b_unit_split(),
             Mode::C => panic!("splitting Node with Mode::C is not supported"),
         };
 
@@ -186,6 +195,8 @@ impl ResultNode {
             splits,
             index: 0,
             lexicon,
+            subset,
+            text,
             byte_offset: self.begin_bytes,
             byte_end: self.end_bytes,
             char_offset: self.begin() as u16,
@@ -201,9 +212,9 @@ impl fmt::Display for ResultNode {
             "{} {} {}{} {} {} {} {}",
             self.begin(),
             self.end(),
-            self.word_info.surface,
+            self.word_info.surface(),
             self.word_id(),
-            self.word_info().pos_id,
+            self.word_info().pos_id(),
             self.left_id(),
             self.right_id(),
             self.cost()
@@ -215,6 +226,8 @@ pub struct NodeSplitIterator<'a> {
     splits: &'a [WordId],
     lexicon: &'a LexiconSet<'a>,
     index: usize,
+    subset: InfoSubset,
+    text: &'a InputBuffer,
     char_offset: u16,
     byte_offset: u16,
     char_end: u16,
@@ -236,16 +249,17 @@ impl Iterator for NodeSplitIterator<'_> {
 
         let word_id = self.splits[idx];
         // data comes from dictionary, panicking here is OK
-        let word_info = self.lexicon.get_word_info(word_id).unwrap();
+        let word_info = self
+            .lexicon
+            .get_word_info_subset(word_id, self.subset)
+            .unwrap();
 
         let (char_end, byte_end) = if idx + 1 == self.splits.len() {
             (self.char_end, self.byte_end)
         } else {
-            (
-                // word_info.head_word_length is in bytes?!?!?
-                char_start + word_info.surface.chars().count() as u16,
-                byte_start + word_info.surface.len() as u16,
-            )
+            let byte_end = byte_start as usize + word_info.head_word_length();
+            let char_end = self.text.ch_idx(byte_end);
+            (char_end as u16, byte_end as u16)
         };
 
         self.char_offset = char_end;
@@ -287,23 +301,24 @@ pub fn concat_nodes(
     let mut head_word_length: u16 = 0;
 
     for node in path[begin..end].iter() {
-        surface.push_str(&node.word_info().surface);
-        reading_form.push_str(&node.word_info().reading_form);
-        dictionary_form.push_str(&node.word_info().dictionary_form);
-        head_word_length += node.word_info().head_word_length;
+        let data = node.word_info().borrow_data();
+        surface.push_str(&data.surface);
+        reading_form.push_str(&data.reading_form);
+        dictionary_form.push_str(&data.dictionary_form);
+        head_word_length += data.head_word_length;
     }
 
     let normalized_form = normalized_form.unwrap_or_else(|| {
         let mut norm = String::with_capacity(end_bytes - beg_bytes);
         for node in path[begin..end].iter() {
-            norm.push_str(&node.word_info().normalized_form);
+            norm.push_str(&node.word_info().borrow_data().normalized_form);
         }
         norm
     });
 
-    let pos_id = path[begin].word_info().pos_id;
+    let pos_id = path[begin].word_info().pos_id();
 
-    let new_wi = WordInfo {
+    let new_wi = WordInfoData {
         surface,
         head_word_length,
         pos_id,
@@ -328,7 +343,7 @@ pub fn concat_nodes(
         path[end - 1].total_cost,
         path[begin].begin_bytes,
         path[end - 1].end_bytes,
-        new_wi,
+        new_wi.into(),
     );
 
     path[begin] = node;
@@ -354,8 +369,9 @@ pub fn concat_oov_nodes(
     let mut wid = WordId::from_raw(0);
 
     for node in path[begin..end].iter() {
-        surface.push_str(&node.word_info().surface);
-        head_word_length += node.word_info().head_word_length;
+        let data = node.word_info().borrow_data();
+        surface.push_str(&data.surface);
+        head_word_length += data.head_word_length;
         wid = wid.max(node.word_id());
     }
 
@@ -363,7 +379,7 @@ pub fn concat_oov_nodes(
         wid = WordId::new(wid.dic(), WordId::MAX_WORD);
     }
 
-    let new_wi = WordInfo {
+    let new_wi = WordInfoData {
         normalized_form: surface.clone(),
         dictionary_form: surface.clone(),
         surface,
@@ -387,7 +403,7 @@ pub fn concat_oov_nodes(
         path[end - 1].total_cost,
         path[begin].begin_bytes,
         path[end - 1].end_bytes,
-        new_wi,
+        new_wi.into(),
     );
 
     path[begin] = node;
