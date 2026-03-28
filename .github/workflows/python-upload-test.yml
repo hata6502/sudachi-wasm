@@ -105,14 +105,19 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, ubuntu-24.04-arm, windows-latest, macOS-latest]
-        target: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.13t"]
+        target: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.13t", "3.14", "3.14t"]
         include:
           - os: "ubuntu-latest"
             target: "sdist"
             python-version: "3.13"
+          - os: "ubuntu-latest"
+            target: "sdist"
+            python-version: "3.14"
         exclude:
           - os: "windows-latest"
             target: "3.13t"
+          - os: "windows-latest"
+            target: "3.14t"
 
     runs-on: ${{ matrix.os }}
     steps:
@@ -136,17 +141,17 @@ jobs:
         # this must be after sudachipy install
         run: python -m pip install sudachidict_core
       - name: Install dependencies (test pretokenizer)
-        # tokenizers for py3.13t is not provided yet
-        if: ${{ matrix.target != '3.13t' }}
+        # tokenizers for py3.13t, py3.14, py3.14t are not provided yet
+        if: ${{ matrix.target != '3.13t' && matrix.target != '3.14' && matrix.target != '3.14t' }}
         run: python -m pip install tokenizers
 
       - name: Run test
-        if: ${{ matrix.target != '3.13t' }}
+        if: ${{ matrix.target != '3.13t' && matrix.target != '3.14' && matrix.target != '3.14t' }}
         working-directory: ./python
         run: python -m unittest
       - name: Run test (skip pretokenizer test)
-        # tokenizers for py3.13t is not provided yet
-        if: ${{ matrix.target == '3.13t' }}
+        # tokenizers for py3.13t, py3.14, py3.14t are not provided yet
+        if: ${{ matrix.target == '3.13t' || matrix.target == '3.14' || matrix.target == '3.14t' }}
         working-directory: ./python
         run: ls tests/test_*.py | grep -v pretokenizer | xargs -I{} python -m unittest {}
       - name: Check that binary works (C mode)

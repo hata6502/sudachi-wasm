@@ -149,9 +149,9 @@ impl PyTokenizer {
         py: Python<'py>,
         text: &'py str,
         mode: Option<&Bound<'py, PyAny>>,
-        logger: Option<PyObject>,
+        logger: Option<Py<PyAny>>,
         out: Option<Bound<'py, PyMorphemeListWrapper>>,
-    ) -> PyResult<Bound<PyMorphemeListWrapper>> {
+    ) -> PyResult<Bound<'py, PyMorphemeListWrapper>> {
         // restore default mode on scope exit
         let mode = match mode {
             None => None,
@@ -164,7 +164,7 @@ impl PyTokenizer {
 
         // analysis can be done without GIL
         errors::wrap_ctx(
-            py.allow_threads(|| {
+            py.detach(|| {
                 tokenizer.reset().push_str(text);
                 tokenizer.do_tokenize()
             }),

@@ -19,7 +19,7 @@ use std::sync::Arc;
 
 use pyo3::intern;
 use pyo3::prelude::*;
-use pyo3::sync::GILOnceCell;
+use pyo3::sync::PyOnceLock;
 use pyo3::types::{PyList, PySlice, PyType};
 use thread_local::ThreadLocal;
 
@@ -138,7 +138,7 @@ impl PyPretokenizer {
         let pystr = string.str()?;
         let input_data = pystr.to_str()?;
         // tokenization itself should work without GIL, we have thread-local tokenizers here
-        py.allow_threads(|| self.tokenizer_cell().borrow_mut().tokenize(input_data))?;
+        py.detach(|| self.tokenizer_cell().borrow_mut().tokenize(input_data))?;
         // then prepare results with GIL
         self.tokenizer_cell().borrow_mut().collect_results(py)?;
         let cell = self.tokenizer_cell().borrow();
@@ -191,10 +191,10 @@ fn make_result_for_projection<'py>(
 ) -> PyResult<Bound<'py, PyList>> {
     let result = PyList::empty(py);
     let nstring = {
-        static NORMALIZED_STRING: GILOnceCell<Py<PyType>> = GILOnceCell::new();
+        static NORMALIZED_STRING: PyOnceLock<Py<PyType>> = PyOnceLock::new();
         NORMALIZED_STRING.get_or_try_init(py, || -> PyResult<Py<PyType>> {
             let ns = py.import("tokenizers")?.getattr("NormalizedString")?;
-            let tpe = ns.downcast::<PyType>()?;
+            let tpe = ns.cast::<PyType>()?;
             Ok(tpe.clone().unbind())
         })?
     };

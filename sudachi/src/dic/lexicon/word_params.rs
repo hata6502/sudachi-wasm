@@ -25,7 +25,7 @@ impl<'a> WordParams<'a> {
     const PARAM_SIZE: usize = 3;
     const ELEMENT_SIZE: usize = 2 * Self::PARAM_SIZE;
 
-    pub fn new(bytes: &'a [u8], size: u32, offset: usize) -> WordParams {
+    pub fn new(bytes: &'a [u8], size: u32, offset: usize) -> WordParams<'a> {
         let n_entries = size as usize * Self::PARAM_SIZE;
         Self {
             data: CowArray::from_bytes(bytes, offset, n_entries),

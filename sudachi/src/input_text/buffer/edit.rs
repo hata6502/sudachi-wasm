@@ -35,7 +35,7 @@ pub struct InputEditor<'a> {
 }
 
 impl<'a> InputEditor<'a> {
-    pub(super) fn new(replaces: &'a mut Vec<ReplaceOp<'a>>) -> InputEditor {
+    pub(super) fn new(replaces: &'a mut Vec<ReplaceOp<'a>>) -> InputEditor<'a> {
         InputEditor { replaces }
     }
 

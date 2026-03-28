@@ -24,7 +24,7 @@ pub struct WordIdTable<'a> {
 }
 
 impl<'a> WordIdTable<'a> {
-    pub fn new(bytes: &'a [u8], size: u32, offset: usize) -> WordIdTable {
+    pub fn new(bytes: &'a [u8], size: u32, offset: usize) -> WordIdTable<'a> {
         WordIdTable {
             bytes,
             size,

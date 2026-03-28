@@ -57,18 +57,32 @@ struct PluginLoader<'a, 'b, T: PluginCategory + ?Sized> {
 }
 
 #[cfg(any(target_os = "linux", target_os = "freebsd"))]
-fn make_system_specific_name(s: &str) -> String {
-    format!("lib{}.so", s)
+fn make_system_specific_name(s: &str) -> Option<String> {
+    Some(format!("lib{}.so", s))
 }
 
 #[cfg(target_os = "windows")]
-fn make_system_specific_name(s: &str) -> String {
-    format!("{}.dll", s)
+fn make_system_specific_name(s: &str) -> Option<String> {
+    Some(format!("{}.dll", s))
 }
 
 #[cfg(target_os = "macos")]
-fn make_system_specific_name(s: &str) -> String {
-    format!("lib{}.dylib", s)
+fn make_system_specific_name(s: &str) -> Option<String> {
+    Some(format!("lib{}.dylib", s))
+}
+
+#[cfg(any(
+    target_os = "ios",
+    target_os = "tvos",
+    target_os = "watchos",
+    target_os = "visionos"
+))]
+// Apple embedded platforms do not support dynamic library loading (DSO plugins)
+// due to platform security restrictions. Returning None here
+// effectively disables loading plugins from DSOs, while still allowing
+// plugins bundled with the application/binary to work as expected.
+fn make_system_specific_name(_s: &str) -> Option<String> {
+    None
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -80,7 +94,7 @@ fn system_specific_name(s: &str) -> Option<String> {
         let fname = p
             .file_name()
             .and_then(|np| np.to_str())
-            .map(make_system_specific_name);
+            .and_then(make_system_specific_name);
         let parent = p.parent().and_then(|np| np.to_str());
         match (parent, fname) {
             (Some(p), Some(c)) => Some(format!("{}/{}", p, c)),

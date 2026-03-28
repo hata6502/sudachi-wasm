@@ -335,7 +335,7 @@ impl PyMorpheme {
 
     /// Returns the dictionary form.
     #[pyo3(text_signature = "(self, /) -> str")]
-    fn dictionary_form<'py>(&'py self, py: Python<'py>) -> PyResult<Bound<PyString>> {
+    fn dictionary_form<'py>(&'py self, py: Python<'py>) -> PyResult<Bound<'py, PyString>> {
         Ok(self
             .morph(py)
             .get_word_info()
@@ -345,7 +345,7 @@ impl PyMorpheme {
 
     /// Returns the normalized form.
     #[pyo3(text_signature = "(self, /) -> str")]
-    fn normalized_form<'py>(&'py self, py: Python<'py>) -> PyResult<Bound<PyString>> {
+    fn normalized_form<'py>(&'py self, py: Python<'py>) -> PyResult<Bound<'py, PyString>> {
         Ok(self
             .morph(py)
             .get_word_info()
@@ -355,7 +355,7 @@ impl PyMorpheme {
 
     /// Returns the reading form.
     #[pyo3(text_signature = "(self, /) -> str")]
-    fn reading_form<'py>(&'py self, py: Python<'py>) -> PyResult<Bound<PyString>> {
+    fn reading_form<'py>(&'py self, py: Python<'py>) -> PyResult<Bound<'py, PyString>> {
         Ok(self
             .morph(py)
             .get_word_info()
@@ -366,7 +366,7 @@ impl PyMorpheme {
     /// Returns sub-morphemes in the provided split mode.
     ///
     /// :param mode: mode of new split.
-    /// :param out: write results to this MorhpemeList instead of creating new one.
+    /// :param out: write results to this MorphemeList instead of creating new one.
     ///     See https://worksapplications.github.io/sudachi.rs/python/topics/out_param.html for
     ///     more information on output parameters.
     ///     Returned MorphemeList will be invalidated if this MorphemeList is used as an output parameter.
@@ -444,7 +444,7 @@ impl PyMorpheme {
 
     /// Returns the list of synonym group ids.
     #[pyo3(text_signature = "(self, /) -> List[int]")]
-    fn synonym_group_ids<'py>(&'py self, py: Python<'py>) -> PyResult<Bound<PyList>> {
+    fn synonym_group_ids<'py>(&'py self, py: Python<'py>) -> PyResult<Bound<'py, PyList>> {
         let mref = self.morph(py);
         let ids = mref.get_word_info().synonym_group_ids();
         PyList::new(py, ids)

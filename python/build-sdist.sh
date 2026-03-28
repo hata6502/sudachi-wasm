@@ -5,6 +5,9 @@ set -ex
 ln -sf ../sudachi sudachi-lib
 ln -sf ../resources resources
 
+## Copy root Cargo.lock for sdist
+cp ../Cargo.lock Cargo.lock
+
 ## Resolve workspace.package value in Cargo.toml
 pip install tomlkit
 
@@ -31,4 +34,4 @@ mv Cargo.sudachipy.toml Cargo.toml
 mv Cargo.sudachilib.toml sudachi-lib/Cargo.toml
 
 ## rm files
-rm LICENSE sudachi-lib resources
+rm LICENSE sudachi-lib resources Cargo.lock

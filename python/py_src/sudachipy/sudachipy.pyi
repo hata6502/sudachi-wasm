@@ -252,7 +252,7 @@ class Morpheme:
         Returns sub-morphemes in the provided split mode.
 
         :param mode: mode of new split.
-        :param out: write results to this MorhpemeList instead of creating new one.
+        :param out: write results to this MorphemeList instead of creating new one.
             See https://worksapplications.github.io/sudachi.rs/python/topics/out_param.html for
             more information on output parameters.
             Returned MorphemeList will be invalidated if this MorphemeList is used as an output parameter.

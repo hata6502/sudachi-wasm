@@ -58,7 +58,7 @@ fn create_file(p: &Path) -> std::io::Result<File> {
 ///
 /// :param matrix: Path to the matrix file.
 /// :param lex: List of paths to lexicon files.
-/// :param output: Path to output built dictionray.
+/// :param output: Path to output built dictionary.
 /// :param description: A description text to embed in the dictionary.
 /// :return: A build report, list of (part, size, time).
 ///
@@ -107,7 +107,7 @@ fn build_system_dic<'py>(
 ///
 /// :param system: Path to the system dictionary.
 /// :param lex: List of paths to lexicon files.
-/// :param output: Path to output built dictionray.
+/// :param output: Path to output built dictionary.
 /// :param description: A description text to embed in the dictionary.
 /// :return: A build report, list of (part, size, time).
 ///
@@ -168,7 +168,7 @@ fn resolve_as_pypathstr<'py>(
     data: &Bound<'py, PyAny>,
 ) -> PyResult<Option<Bound<'py, PyString>>> {
     let binding = py.import("pathlib")?.getattr("Path")?;
-    let path = binding.downcast::<PyType>()?;
+    let path = binding.cast::<PyType>()?;
     if data.is_instance(path)? {
         Ok(Some(data.call_method0("resolve")?.str()?))
     } else if data.is_instance_of::<PyString>() {
@@ -186,9 +186,7 @@ fn as_data_source<'py>(
         Some(pystr) => Ok(DataSource::File(Path::new(pystr.to_str()?))),
         None => {
             if original_obj.is_instance_of::<PyBytes>() {
-                Ok(DataSource::Data(
-                    original_obj.downcast::<PyBytes>()?.as_bytes(),
-                ))
+                Ok(DataSource::Data(original_obj.cast::<PyBytes>()?.as_bytes()))
             } else {
                 errors::wrap(Err(format!(
                     "data source should be only Path, bytes or str, was {}: {}",

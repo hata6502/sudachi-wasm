@@ -92,7 +92,7 @@ impl<'a> LoadedDictionary<'a> {
     pub(crate) fn merge_dictionary(
         mut self,
         other: DictionaryLoader<'a>,
-    ) -> SudachiResult<LoadedDictionary> {
+    ) -> SudachiResult<LoadedDictionary<'a>> {
         let npos = self.grammar.pos_list.len();
         let lexicon = other.lexicon;
         let grammar = other.grammar;

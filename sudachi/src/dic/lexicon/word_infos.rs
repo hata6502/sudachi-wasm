@@ -36,7 +36,7 @@ impl<'a> WordInfos<'a> {
         offset: usize,
         _word_size: u32,
         has_synonym_group_ids: bool,
-    ) -> WordInfos {
+    ) -> WordInfos<'a> {
         WordInfos {
             bytes,
             offset,

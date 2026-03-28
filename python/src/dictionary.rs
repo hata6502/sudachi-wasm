@@ -47,7 +47,7 @@ pub(crate) struct PyDicData {
     pub(crate) pos: Vec<Py<PyTuple>>,
     /// Compute default string representation for a morpheme using vtable dispatch.
     /// None by default (if outputting surface as it is)
-    /// This is default per-dictionary value, can be overriden when creating tokenizers and pre-tokenizers
+    /// This is default per-dictionary value, can be overridden when creating tokenizers and pre-tokenizers
     pub(crate) projection: PyProjector,
 }
 
@@ -430,7 +430,7 @@ impl PyDictionary {
     ///
     /// :type pos_id: int
     #[pyo3(text_signature = "(self, /, pos_id: int) -> tuple[str, str, str, str, str, str] | None")]
-    fn pos_of<'py>(&'py self, py: Python<'py>, pos_id: usize) -> Option<&Bound<'py, PyTuple>> {
+    fn pos_of<'py>(&'py self, py: Python<'py>, pos_id: usize) -> Option<&'py Bound<'py, PyTuple>> {
         let dic = self.dictionary.as_ref().unwrap();
         dic.pos.get(pos_id).map(|x| x.bind(py))
     }
@@ -516,21 +516,21 @@ fn read_config(config_opt: &Bound<PyAny>) -> PyResult<ConfigBuilder> {
 
 pub(crate) fn read_default_config(py: Python) -> PyResult<ConfigBuilder> {
     let path = py.import("sudachipy")?.getattr("_DEFAULT_SETTINGFILE")?;
-    let path = path.downcast::<PyString>()?.to_str()?;
+    let path = path.cast::<PyString>()?.to_str()?;
     let path = PathBuf::from(path);
     errors::wrap_ctx(ConfigBuilder::from_opt_file(Some(&path)), &path)
 }
 
 pub(crate) fn get_default_resource_dir(py: Python) -> PyResult<PathBuf> {
     let path = py.import("sudachipy")?.getattr("_DEFAULT_RESOURCEDIR")?;
-    let path = path.downcast::<PyString>()?.to_str()?;
+    let path = path.cast::<PyString>()?.to_str()?;
     Ok(PathBuf::from(path))
 }
 
 fn find_dict_path(py: Python, dict_type: &str) -> PyResult<PathBuf> {
     let pyfunc = py.import("sudachipy")?.getattr("_find_dict_path")?;
     let path = pyfunc.call1((dict_type,))?;
-    let path = path.downcast::<PyString>()?.to_str()?;
+    let path = path.cast::<PyString>()?.to_str()?;
     Ok(PathBuf::from(path))
 }
 
