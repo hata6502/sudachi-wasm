@@ -63,12 +63,11 @@ console.log(JSON.parse(tokenize("今日は良い天気なり。", TokenizeMode.C
 ## Development requirements
 
 - [wasm-pack](https://github.com/rustwasm/wasm-pack)
-- [zx](https://github.com/google/zx)
 
 ## Build
 
 ```bash
-wasm-pack build --dev --target web && cd pkg && zx ../wasm-pack-inline.mjs && cd ..
+wasm-pack build --dev --target web && cd pkg && node ../wasm-pack-inline.mjs && cd ..
 ```
 
 ## Test

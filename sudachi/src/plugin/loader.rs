@@ -14,8 +14,12 @@
  *  limitations under the License.
  */
 
+#[cfg(not(target_arch = "wasm32"))]
 use libloading::{Library, Symbol};
 use serde_json::Value;
+
+#[cfg(target_arch = "wasm32")]
+type Library = ();
 
 use crate::config::{Config, ConfigError};
 use crate::dic::grammar::Grammar;
@@ -67,6 +71,7 @@ fn make_system_specific_name(s: &str) -> String {
     format!("lib{}.dylib", s)
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn system_specific_name(s: &str) -> Option<String> {
     if s.contains('.') {
         None
@@ -82,6 +87,11 @@ fn system_specific_name(s: &str) -> Option<String> {
             _ => None,
         }
     }
+}
+
+#[cfg(target_arch = "wasm32")]
+fn system_specific_name(_s: &str) -> Option<String> {
+    None
 }
 
 impl<'a, 'b, T: PluginCategory + ?Sized> PluginLoader<'a, 'b, T> {
@@ -144,6 +154,7 @@ impl<'a, 'b, T: PluginCategory + ?Sized> PluginLoader<'a, 'b, T> {
         resolved
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     fn try_load_library_from(candidates: &[String]) -> SudachiResult<(Library, &str)> {
         if candidates.is_empty() {
             return Err(SudachiError::PluginError(PluginError::InvalidDataFormat(
@@ -164,6 +175,14 @@ impl<'a, 'b, T: PluginCategory + ?Sized> PluginLoader<'a, 'b, T> {
         }))
     }
 
+    #[cfg(target_arch = "wasm32")]
+    fn try_load_library_from(_candidates: &[String]) -> SudachiResult<(Library, &str)> {
+        Err(SudachiError::PluginError(PluginError::InvalidDataFormat(
+            "dynamic plugins are not supported on wasm32".to_owned(),
+        )))
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
     fn load_plugin_from_dso(
         &mut self,
         candidates: &[String],
@@ -177,6 +196,17 @@ impl<'a, 'b, T: PluginCategory + ?Sized> PluginLoader<'a, 'b, T> {
         let plugin = load_fn();
         self.libraries.push(lib);
         plugin
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    fn load_plugin_from_dso(
+        &mut self,
+        candidates: &[String],
+    ) -> SudachiResult<<T as PluginCategory>::BoxType> {
+        let _ = candidates;
+        Err(SudachiError::PluginError(PluginError::InvalidDataFormat(
+            "dynamic plugins are not supported on wasm32".to_owned(),
+        )))
     }
 }
 

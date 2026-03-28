@@ -1,7 +1,19 @@
-#!/usr/bin/env zx
- 
+#!/usr/bin/env node
+
+import { promises as fs } from "node:fs";
+
 const packageObject = JSON.parse(await fs.readFile('package.json', 'utf-8'));
+const entryPath = packageObject.module ?? packageObject.main;
 const wasmPath = packageObject.files.find(file => file.endsWith('.wasm'));
+
+if (!entryPath) {
+  throw new Error('package.json must define either "module" or "main"');
+}
+
+if (!wasmPath) {
+  throw new Error('package.json does not include a .wasm file entry');
+}
+
 const wasm = await fs.readFile(wasmPath);
 const wasmBASE64 = wasm.toString('base64');
 
@@ -23,13 +35,17 @@ const initializeScript = `
     throw new Error('Unsupported platform');
   }
 
-  await init(bytes);
+  const initFn = typeof init === 'function' ? init : __wbg_init;
+  await initFn({ module_or_path: bytes });
 `
 
-await fs.appendFile(packageObject.module, initializeScript);
+await fs.appendFile(entryPath, initializeScript);
 
 packageObject.files = packageObject.files.filter(file => !file.endsWith('.wasm'));
-packageObject.main = packageObject.module;
+packageObject.main = entryPath;
+if (packageObject.module) {
+  packageObject.module = entryPath;
+}
 packageObject.type = "module";
 
 await fs.writeFile('package.json', JSON.stringify(packageObject, null, 2));

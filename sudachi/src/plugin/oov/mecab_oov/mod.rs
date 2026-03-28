@@ -19,6 +19,7 @@ use crate::util::user_pos::{UserPosMode, UserPosSupport};
 use serde::Deserialize;
 use serde_json::Value;
 use std::collections::HashMap;
+#[cfg(not(target_arch = "wasm32"))]
 use std::fs;
 use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
@@ -264,12 +265,21 @@ impl OovProviderPlugin for MeCabOovPlugin {
                 .unwrap_or_else(|| PathBuf::from(DEFAULT_CHAR_DEF_FILE)),
         );
 
-        let categories = if char_def_path.is_ok() {
-            let reader = BufReader::new(&include_bytes!("../../resources/char.def")[0..]);
-            MeCabOovPlugin::read_character_property(reader)?
-        } else {
-            let reader = BufReader::new(DEFAULT_CHAR_DEF_BYTES);
-            MeCabOovPlugin::read_character_property(reader)?
+        let categories = match char_def_path {
+            Ok(char_def_path) => {
+                #[cfg(target_arch = "wasm32")]
+                let reader = {
+                    let _ = char_def_path;
+                    BufReader::new(DEFAULT_CHAR_DEF_BYTES)
+                };
+                #[cfg(not(target_arch = "wasm32"))]
+                let reader = BufReader::new(fs::File::open(char_def_path)?);
+                MeCabOovPlugin::read_character_property(reader)?
+            }
+            Err(_) => {
+                let reader = BufReader::new(DEFAULT_CHAR_DEF_BYTES);
+                MeCabOovPlugin::read_character_property(reader)?
+            }
         };
 
         let unk_def_path = config.complete_path(
@@ -278,12 +288,21 @@ impl OovProviderPlugin for MeCabOovPlugin {
                 .unwrap_or_else(|| PathBuf::from(DEFAULT_UNK_DEF_FILE)),
         );
 
-        let oov_list = if unk_def_path.is_ok() {
-            let reader = BufReader::new(&include_bytes!("../../resources/unk.def")[0..]);
-            MeCabOovPlugin::read_oov(reader, &categories, grammar, settings.userPOS)?
-        } else {
-            let reader = BufReader::new(DEFAULT_UNK_DEF_BYTES);
-            MeCabOovPlugin::read_oov(reader, &categories, grammar, settings.userPOS)?
+        let oov_list = match unk_def_path {
+            Ok(unk_def_path) => {
+                #[cfg(target_arch = "wasm32")]
+                let reader = {
+                    let _ = unk_def_path;
+                    BufReader::new(DEFAULT_UNK_DEF_BYTES)
+                };
+                #[cfg(not(target_arch = "wasm32"))]
+                let reader = BufReader::new(fs::File::open(unk_def_path)?);
+                MeCabOovPlugin::read_oov(reader, &categories, grammar, settings.userPOS)?
+            }
+            Err(_) => {
+                let reader = BufReader::new(DEFAULT_UNK_DEF_BYTES);
+                MeCabOovPlugin::read_oov(reader, &categories, grammar, settings.userPOS)?
+            }
         };
 
         self.categories = categories;

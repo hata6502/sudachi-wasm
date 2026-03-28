@@ -15,6 +15,7 @@
  */
 
 use std::collections::BTreeSet;
+#[cfg(not(target_arch = "wasm32"))]
 use std::fs;
 use std::io::{BufRead, BufReader};
 use std::iter::FusedIterator;
@@ -80,8 +81,11 @@ impl Default for CharacterCategory {
 
 impl CharacterCategory {
     /// Creates a character category from file
-    pub fn from_file(path: &Path) -> SudachiResult<CharacterCategory> {
-        let reader = BufReader::new(&include_bytes!("../resources/char.def")[0..]);
+    pub fn from_file(_path: &Path) -> SudachiResult<CharacterCategory> {
+        #[cfg(target_arch = "wasm32")]
+        let reader = BufReader::new(&include_bytes!("../../../resources/char.def")[0..]);
+        #[cfg(not(target_arch = "wasm32"))]
+        let reader = BufReader::new(fs::File::open(_path)?);
         Self::from_reader(reader)
     }
 
